@@ -1,0 +1,61 @@
+import 'package:equatable/equatable.dart';
+
+enum TripPhase {
+  active,
+  finished,
+  settled;
+
+  static TripPhase fromString(String value) {
+    return TripPhase.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => TripPhase.active,
+    );
+  }
+}
+
+class Trip extends Equatable {
+  final String id;
+  final String name;
+  final String baseCurrency;
+  final TripPhase phase;
+  final bool isLocked;
+  final String? inviteCode;
+  final String createdBy;
+  final DateTime createdAt;
+
+  const Trip({
+    required this.id,
+    required this.name,
+    required this.baseCurrency,
+    required this.phase,
+    required this.isLocked,
+    this.inviteCode,
+    required this.createdBy,
+    required this.createdAt,
+  });
+
+  factory Trip.fromJson(Map<String, dynamic> json) {
+    return Trip(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      baseCurrency: json['base_currency'] as String,
+      phase: TripPhase.fromString(json['phase'] as String),
+      isLocked: json['is_locked'] as bool,
+      inviteCode: json['invite_code'] as String?,
+      createdBy: json['created_by'] as String,
+      createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    id,
+    name,
+    baseCurrency,
+    phase,
+    isLocked,
+    inviteCode,
+    createdBy,
+    createdAt,
+  ];
+}
