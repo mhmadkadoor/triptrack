@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -6,6 +5,7 @@ import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/trips/screens/dashboard_screen.dart';
 import '../../features/trips/screens/create_trip_screen.dart';
+import '../../features/trips/screens/trip_detail_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -35,7 +35,7 @@ GoRouter appRouter(Ref ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/', redirect: (_, __) => '/trips'),
+      GoRoute(path: '/', redirect: (_, _) => '/trips'),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/trips',
@@ -44,6 +44,13 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: '/trips/create',
         builder: (context, state) => const CreateTripScreen(),
+      ),
+      GoRoute(
+        path: '/trip/:id',
+        builder: (context, state) {
+          final tripId = state.pathParameters['id']!;
+          return TripDetailScreen(tripId: tripId);
+        },
       ),
     ],
   );

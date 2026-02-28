@@ -76,7 +76,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             ),
             const SizedBox(height: 24),
             DropdownButtonFormField<String>(
-              value: _selectedCurrency,
+              initialValue: _selectedCurrency,
               decoration: const InputDecoration(
                 labelText: 'Base Currency',
                 border: OutlineInputBorder(),

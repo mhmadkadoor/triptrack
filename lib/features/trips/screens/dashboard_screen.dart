@@ -86,9 +86,105 @@ class DashboardScreen extends ConsumerWidget {
         error: (error, stack) =>
             Center(child: Text('Error loading trips: $error')),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/trips/create'),
-        child: const Icon(Icons.add),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'join',
+            onPressed: () => _showJoinTripDialog(context, ref),
+            label: const Text('Join'),
+            icon: const Icon(Icons.group_add),
+            backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+            foregroundColor: Theme.of(context).colorScheme.onTertiaryContainer,
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            heroTag: 'create',
+            onPressed: () => context.push('/trips/create'),
+            child: const Icon(Icons.add),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showJoinTripDialog(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+
+    // We use a simple dialog for input
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Join a Trip'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter the 6-character invite code shared by the trip leader.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Invite Code',
+                border: OutlineInputBorder(),
+                hintText: 'e.g. A8X2B9',
+              ),
+              textCapitalization: TextCapitalization.characters,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final code = controller.text.trim().toUpperCase();
+              if (code.length != 6) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Invalid code length. Must be 6 characters.'),
+                  ),
+                );
+                return;
+              }
+
+              // Show loading? Ideally we'd use a state provider or just close and show snackbar progress.
+              // For simplicity:
+              Navigator.of(context).pop(); // Close dialog first
+
+              try {
+                final scaffold = ScaffoldMessenger.of(context);
+                scaffold.showSnackBar(
+                  const SnackBar(content: Text('Joining trip...')),
+                );
+
+                await ref.read(tripRepositoryProvider).joinTrip(code);
+
+                scaffold.hideCurrentSnackBar();
+                scaffold.showSnackBar(
+                  const SnackBar(
+                    content: Text('Successfully joined trip!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Error: ${e.toString().replaceAll("Exception: ", "")}',
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Join'),
+          ),
+        ],
       ),
     );
   }
@@ -143,7 +239,7 @@ class _TripListTile extends StatelessWidget {
       ),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
-        // TODO: Navigate into the trip details
+        context.push('/trip/${trip.id}');
       },
     );
   }

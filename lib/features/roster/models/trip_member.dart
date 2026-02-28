@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../auth/models/profile.dart'; // Add profile import
+
 enum TripRole {
   leader,
   contributor,
@@ -32,6 +34,7 @@ class TripMember extends Equatable {
   final TripRole role;
   final ExitStatus exitStatus;
   final DateTime joinedAt;
+  final Profile? profile; // Add profile field
 
   const TripMember({
     required this.tripId,
@@ -39,6 +42,7 @@ class TripMember extends Equatable {
     required this.role,
     required this.exitStatus,
     required this.joinedAt,
+    this.profile, // Add profile to constructor
   });
 
   factory TripMember.fromJson(Map<String, dynamic> json) {
@@ -48,9 +52,19 @@ class TripMember extends Equatable {
       role: TripRole.fromString(json['role'] as String),
       exitStatus: ExitStatus.fromString(json['exit_status'] as String),
       joinedAt: DateTime.parse(json['joined_at'] as String).toLocal(),
+      profile: json['profiles'] != null
+          ? Profile.fromJson(json['profiles'])
+          : null, // Parse profile
     );
   }
 
   @override
-  List<Object?> get props => [tripId, userId, role, exitStatus, joinedAt];
+  List<Object?> get props => [
+    tripId,
+    userId,
+    role,
+    exitStatus,
+    joinedAt,
+    profile,
+  ];
 }
