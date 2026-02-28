@@ -1,14 +1,18 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class SupabaseConfig {
-  // TODO: Replace these with your actual Supabase project credentials
+  // Load from environment variables (.env file)
   // Get these from: https://app.supabase.com/project/_/settings/api
 
-  static const String supabaseUrl = 'YOUR_SUPABASE_URL';
-  static const String supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+  static String get supabaseUrl => dotenv.get('SUPABASE_URL', fallback: '');
+
+  static String get supabaseAnonKey =>
+      dotenv.get('SUPABASE_ANON_KEY', fallback: '');
 
   // Instructions:
-  // 1. Go to https://supabase.com and create a free account
-  // 2. Create a new project
-  // 3. Go to Project Settings > API
-  // 4. Copy the URL and anon/public key
-  // 5. Replace the values above
+  // 1. Copy .env.example to .env
+  // 2. Go to https://supabase.com and create a free account
+  // 3. Create a new project
+  // 4. Go to Project Settings > API
+  // 5. Copy the URL and anon/public key to your .env file
 }
