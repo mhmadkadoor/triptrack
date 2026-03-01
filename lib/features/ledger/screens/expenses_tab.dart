@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../trips/models/trip.dart'; // import TripPhase
 import '../../trips/providers/trip_provider.dart';
 import '../models/expense.dart';
 import 'add_expense_screen.dart';
@@ -15,6 +16,7 @@ class ExpensesTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final expensesAsync = ref.watch(expensesProvider(tripId));
+    final tripAsync = ref.watch(tripProvider(tripId));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -23,14 +25,23 @@ class ExpensesTab extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('Error: $e')),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => AddExpenseScreen(tripId: tripId)),
+      floatingActionButton: tripAsync.when(
+        data: (trip) {
+          if (trip.phase != TripPhase.active) return null;
+          return FloatingActionButton.extended(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => AddExpenseScreen(tripId: tripId),
+                ),
+              );
+            },
+            label: const Text('Add Expense'),
+            icon: const Icon(Icons.receipt_long),
           );
         },
-        label: const Text('Add Expense'),
-        icon: const Icon(Icons.receipt_long),
+        loading: () => null,
+        error: (_, __) => null,
       ),
     );
   }

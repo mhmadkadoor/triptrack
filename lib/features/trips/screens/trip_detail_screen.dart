@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../ledger/screens/expenses_tab.dart'; // Add expenses tab import
+import '../../ledger/screens/expenses_tab.dart';
+import '../../ledger/screens/balances_tab.dart'; // import new tab
 import '../../trips/screens/tabs/members_tab.dart';
 
 class TripDetailScreen extends StatefulWidget {
@@ -17,9 +18,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   Widget build(BuildContext context) {
     // We will conditionally render the 3 tabs based on the current index
     final List<Widget> tabs = [
-      ExpensesTab(tripId: widget.tripId), // The new Expenses tab
-      const Center(child: Text('Balances Tab placeholder')),
-      MembersTab(tripId: widget.tripId), // Use MembersTab
+      ExpensesTab(tripId: widget.tripId),
+      BalancesTab(tripId: widget.tripId), // The new Balances tab
+      MembersTab(tripId: widget.tripId),
     ];
 
     return Scaffold(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../roster/models/trip_member.dart';
 import '../providers/trip_provider.dart';
 
 class CreateTripScreen extends ConsumerStatefulWidget {
@@ -14,6 +15,7 @@ class CreateTripScreen extends ConsumerStatefulWidget {
 class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _nameController = TextEditingController();
   String _selectedCurrency = 'USD';
+  TripRole _selectedRole = TripRole.contributor;
   bool _isLoading = false;
 
   final List<String> _currencies = ['USD', 'EUR', 'TRY', 'GBP', 'CAD', 'AUD'];
@@ -26,7 +28,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
     try {
       final repo = ref.read(tripRepositoryProvider);
-      await repo.createTrip(name: name, currency: _selectedCurrency);
+      await repo.createTrip(
+        name: name,
+        currency: _selectedCurrency,
+        defaultJoinRole: _selectedRole,
+      );
 
       if (mounted) {
         context.pop(); // Go back to dashboard on success
@@ -90,7 +96,31 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 }
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<TripRole>(
+              value: _selectedRole,
+              decoration: const InputDecoration(
+                labelText: 'Default Role for New Members',
+                border: OutlineInputBorder(),
+                helperText: 'Controls what permissions new joiners have.',
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: TripRole.contributor,
+                  child: Text('Contributor (Add Expenses)'),
+                ),
+                DropdownMenuItem(
+                  value: TripRole.hiker,
+                  child: Text('Hiker (View Only)'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _selectedRole = value);
+                }
+              },
+            ),
+            const SizedBox(height: 24),
             Row(
               children: [
                 Icon(

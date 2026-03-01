@@ -11,8 +11,7 @@ class Expense extends Equatable {
   final String paidBy;
   final DateTime createdAt;
   final Profile? paidByProfile;
-  // We might want to include the list of participants here if needed for UI details
-  // final List<String> participantIds;
+  final List<String> participantUserIds;
 
   const Expense({
     required this.id,
@@ -23,12 +22,21 @@ class Expense extends Equatable {
     required this.paidBy,
     required this.createdAt,
     this.paidByProfile,
+    this.participantUserIds = const [],
   });
 
   factory Expense.fromJson(Map<String, dynamic> json) {
     Profile? profile;
     if (json['profiles'] != null) {
       profile = Profile.fromJson(json['profiles']);
+    }
+
+    List<String> participants = [];
+    if (json['participants'] != null) {
+      // Assuming we join an array of participants or fetch them separately
+      participants = (json['participants'] as List<dynamic>)
+          .map((p) => p['user_id'] as String)
+          .toList();
     }
 
     return Expense(
@@ -40,6 +48,7 @@ class Expense extends Equatable {
       paidBy: json['paid_by'] as String,
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
       paidByProfile: profile,
+      participantUserIds: participants,
     );
   }
 
@@ -53,5 +62,6 @@ class Expense extends Equatable {
     paidBy,
     createdAt,
     paidByProfile,
+    participantUserIds,
   ];
 }

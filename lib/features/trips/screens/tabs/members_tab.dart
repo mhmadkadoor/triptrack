@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/trip_provider.dart';
+import '../../models/trip.dart'; // import TripPhase
 import '../../../roster/models/trip_member.dart';
 import '../../../auth/providers/auth_provider.dart'; // Add auth provider
 
@@ -83,6 +84,106 @@ class MembersTab extends ConsumerWidget {
             ),
           ),
 
+          // Action Buttons for Leader (Finish Trip)
+          SliverToBoxAdapter(
+            child: tripAsync.when(
+              data: (trip) {
+                // Determine if we show the button
+                final isLeader =
+                    membersAsync.asData?.value.any(
+                      (m) =>
+                          m.userId == currentUser?.id &&
+                          m.role == TripRole.leader,
+                    ) ??
+                    false;
+                final isActive = trip.phase == TripPhase.active;
+
+                if (!isLeader || !isActive) return const SizedBox.shrink();
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (c) => AlertDialog(
+                          title: const Text('Finish & Lock Trip?'),
+                          content: const Text(
+                            'Are you sure? This will lock the ledger and no more expenses can be added. '
+                            'Balances will be final.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(c, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(c, true),
+                              child: const Text(
+                                'Finish Trip',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirm == true) {
+                        try {
+                          await ref
+                              .read(tripRepositoryProvider)
+                              .finishTrip(tripId);
+
+                          // Wait for DB commit
+                          await Future.delayed(
+                            const Duration(milliseconds: 300),
+                          );
+
+                          // Invalidate to refresh UI
+                          ref.invalidate(tripProvider(tripId));
+                          ref.invalidate(userTripsProvider);
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Trip marked as finished!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.lock_outline),
+                    label: const Text('Finish & Lock Trip'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.errorContainer,
+                      foregroundColor: Theme.of(
+                        context,
+                      ).colorScheme.onErrorContainer,
+                    ),
+                  ),
+                );
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+          ),
+
           // Members List Header
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -150,12 +251,75 @@ class MembersTab extends ConsumerWidget {
                             onSelected: (newRole) async {
                               if (newRole == member.role) return;
 
-                              // Check self-demotion
-                              if (isMe &&
+                              // Special Handling for Downgrade to Hiker (Destructive)
+                              if (newRole == TripRole.hiker) {
+                                bool isChecked = false;
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (c) {
+                                    return StatefulBuilder(
+                                      builder: (context, setState) {
+                                        return AlertDialog(
+                                          title: const Text(
+                                            'Warning: Data Loss',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                          content: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text(
+                                                'Downgrading to Hiker will permanently delete all expenses paid by this member. This cannot be undone.',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 16),
+                                              CheckboxListTile(
+                                                value: isChecked,
+                                                onChanged: (val) {
+                                                  setState(() {
+                                                    isChecked = val ?? false;
+                                                  });
+                                                },
+                                                title: const Text(
+                                                  'I understand',
+                                                ),
+                                                controlAffinity:
+                                                    ListTileControlAffinity
+                                                        .leading,
+                                                contentPadding: EdgeInsets.zero,
+                                              ),
+                                            ],
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(c, false),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed: isChecked
+                                                  ? () => Navigator.pop(c, true)
+                                                  : null,
+                                              child: const Text(
+                                                'Downgrade',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                );
+                                if (confirm != true) return;
+                              } else if (isMe &&
                                   member.role == TripRole.leader &&
                                   newRole != TripRole.leader) {
-                                // Ensure there is at least one other leader?
-                                // For now, just show a warning or allow it.
+                                // Check self-demotion checks (only if not already handled by hiker check)
                                 final confirm = await showDialog<bool>(
                                   context: context,
                                   builder: (c) => AlertDialog(
@@ -200,10 +364,15 @@ class MembersTab extends ConsumerWidget {
                                 }
                               } catch (e) {
                                 if (context.mounted) {
+                                  // Clean up the error message to be more user friendly
+                                  final errorMessage = e
+                                      .toString()
+                                      .replaceFirst('Exception: ', '');
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Error: $e'),
+                                      content: Text('Error: $errorMessage'),
                                       backgroundColor: Colors.red,
+                                      behavior: SnackBarBehavior.floating,
                                     ),
                                   );
                                 }

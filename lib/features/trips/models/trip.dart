@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../roster/models/trip_member.dart';
+
 enum TripPhase {
   active,
   finished,
@@ -20,6 +22,7 @@ class Trip extends Equatable {
   final TripPhase phase;
   final bool isLocked;
   final String? inviteCode;
+  final TripRole defaultJoinRole;
   final String createdBy;
   final DateTime createdAt;
 
@@ -30,6 +33,7 @@ class Trip extends Equatable {
     required this.phase,
     required this.isLocked,
     this.inviteCode,
+    this.defaultJoinRole = TripRole.contributor,
     required this.createdBy,
     required this.createdAt,
   });
@@ -42,6 +46,9 @@ class Trip extends Equatable {
       phase: TripPhase.fromString(json['phase'] as String),
       isLocked: json['is_locked'] as bool,
       inviteCode: json['invite_code'] as String?,
+      defaultJoinRole: TripRole.fromString(
+        json['default_join_role'] as String? ?? 'contributor',
+      ),
       createdBy: json['created_by'] as String,
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
     );
@@ -55,6 +62,7 @@ class Trip extends Equatable {
     phase,
     isLocked,
     inviteCode,
+    defaultJoinRole,
     createdBy,
     createdAt,
   ];

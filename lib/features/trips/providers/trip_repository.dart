@@ -23,27 +23,52 @@ class TripRepository {
         .asyncMap((data) async {
           if (data.isEmpty) return <Expense>[];
 
+          final expenseIds = data.map((e) => e['id'] as String).toList();
           final userIds = data
               .map((e) => e['paid_by'] as String)
               .toSet()
               .toList();
 
-          if (userIds.isEmpty)
-            return data.map((e) => Expense.fromJson(e)).toList();
-
+          // Fetch profiles
           final profiles = await _client
               .from('profiles')
               .select()
               .inFilter('id', userIds);
-
           final profileMap = {for (var p in profiles) p['id'] as String: p};
 
+          // Fetch participants
+          final participantsData = await _client
+              .from('expense_participants')
+              .select('expense_id, user_id')
+              .inFilter('expense_id', expenseIds);
+
+          // Group participants by expense
+          final participantsMap = <String, List<Map<String, dynamic>>>{};
+          for (var p in participantsData) {
+            final eId = p['expense_id'] as String;
+            if (!participantsMap.containsKey(eId)) {
+              participantsMap[eId] = [];
+            }
+            participantsMap[eId]!.add(p);
+          }
+
           return data.map((json) {
+            final eId = json['id'] as String;
             final payerId = json['paid_by'] as String;
+
+            // Attach profile
             final profileJson = profileMap[payerId];
             if (profileJson != null) {
               json['profiles'] = profileJson;
             }
+
+            // Attach participants
+            if (participantsMap.containsKey(eId)) {
+              json['participants'] = participantsMap[eId];
+            } else {
+              json['participants'] = <Map<String, dynamic>>[];
+            }
+
             return Expense.fromJson(json);
           }).toList();
         });
@@ -117,11 +142,36 @@ class TripRepository {
     // Ensure we don't accidentally check the current user's role against memberId.
     // Usually RLS handles permission checks.
 
+    // CRITICAL: If downgrading to 'hiker', we must delete all expenses paid by them.
+    // Hikers cannot be 'paid_by' on any expense.
+    if (newRole == TripRole.hiker) {
+      try {
+        // Supabase cascade will handle expense_participants,
+        // but we must delete the expenses rows where they are the payer.
+        // We verify the deletion by selecting the returned rows.
+        await _client.from('expenses').delete().match({
+          'trip_id': tripId,
+          'paid_by': memberId,
+        }).select();
+      } catch (e) {
+        // This usually happens if RLS policies prevent deletion
+        // or if foreign key constraints fail without CASCADE.
+        throw Exception(
+          'Failed to delete expenses. Database blocked the action. Ensure you are a valid Leader and policies are set.',
+        );
+      }
+    }
+
     // We update the trip_members table directly.
-    await _client.from('trip_members').update({'role': newRole.name}).match({
-      'trip_id': tripId,
-      'user_id': memberId,
-    });
+    final result = await _client
+        .from('trip_members')
+        .update({'role': newRole.name})
+        .match({'trip_id': tripId, 'user_id': memberId})
+        .select();
+
+    if (result.isEmpty) {
+      throw Exception('Failed to update role. You may not have permission.');
+    }
   }
 
   /// Streams the list of trips the user is a member of.
@@ -221,6 +271,7 @@ class TripRepository {
   Future<void> createTrip({
     required String name,
     required String currency,
+    required TripRole defaultJoinRole,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) {
@@ -241,6 +292,7 @@ class TripRepository {
       'phase': 'active', // Enum converted gracefully by Supabase
       'is_locked': false,
       'invite_code': inviteCode, // Include the invite code
+      'default_join_role': defaultJoinRole.name,
     });
 
     // 2. Insert the Member (The Creator becomes the Leader)
@@ -252,31 +304,66 @@ class TripRepository {
     });
   }
 
+  /// Finishes the trip by updating the phase to 'finished'.
+  Future<void> finishTrip(String tripId) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('Must be logged in.');
+
+    final result = await _client
+        .from('trips')
+        .update({'phase': 'finished'})
+        .match({'id': tripId})
+        .select();
+
+    if (result.isEmpty) {
+      throw Exception(
+        'Failed to lock trip. You may not be a leader or the database blocked it.',
+      );
+    }
+  }
+
   /// Start the "Join Trip" flow.
   ///
-  /// 1. Uses a Postgres function `join_trip_by_invite_code` to bypass RLS safely.
-  /// 2. Handles errors returned by the function.
+  /// Queries the trips table to validate the invite_code and fetch default_join_role.
+  /// Then inserts the new member with that specific role.
+  ///
+  /// Note: RLS must allow SELECT on trips (or at least invite_code/default_join_role)
+  /// and INSERT on trip_members.
   Future<void> joinTrip(String inviteCode) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Must be logged in to join a trip.');
 
-    try {
-      // Call the secure database function
-      final response = await _client.rpc(
-        'join_trip_by_invite_code',
-        params: {'invite_code_input': inviteCode},
-      );
+    // 1. Query trip by invite code to get ID and Default Role
+    final tripData = await _client
+        .from('trips')
+        .select('id, default_join_role')
+        .eq('invite_code', inviteCode)
+        .maybeSingle();
 
-      // Response is a JSON object: { "success": boolean, "message": string }
-      if (response == null || response['success'] != true) {
-        throw Exception(response?['message'] ?? 'Failed to join trip.');
-      }
+    if (tripData == null) {
+      throw Exception('Invalid invite code. Trip not found.');
+    }
+
+    final tripId = tripData['id'] as String;
+    final defaultRole =
+        tripData['default_join_role'] as String? ?? 'contributor';
+
+    // 2. Check if already a member?
+    // The duplicate key violation will handle this, but friendly check helps.
+    // However, for speed/race-conditions, letting DB error is safer.
+
+    try {
+      // 3. Insert into trip_members
+      await _client.from('trip_members').insert({
+        'trip_id': tripId,
+        'user_id': userId,
+        'role': defaultRole,
+        'exit_status': 'none',
+      });
     } on PostgrestException catch (e) {
-      // Handful of common errors
-      if (e.message.contains('does not exist') || e.code == '42883') {
-        throw Exception(
-          'Database function missing. Please run the provided SQL migration script in Supabase.',
-        );
+      if (e.code == '23505') {
+        // Unique violation
+        throw Exception('You are already a member of this trip.');
       }
       rethrow;
     }
