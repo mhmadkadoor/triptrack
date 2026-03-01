@@ -340,7 +340,7 @@ class TripRepository {
     // 2. Update Trip Phase
     final result = await _client
         .from('trips')
-        .update({'phase': 'finished'})
+        .update({'phase': 'finished', 'is_locked': true})
         .match({'id': tripId})
         .select();
 
@@ -394,12 +394,18 @@ class TripRepository {
     // 2. Query trip by invite code to get ID and Default Role
     final tripData = await _client
         .from('trips')
-        .select('id, default_join_role')
+        .select('id, default_join_role, is_locked')
         .eq('invite_code', sanitizedCode)
         .maybeSingle();
 
     if (tripData == null) {
       throw Exception('Invalid invite code. Trip not found.');
+    }
+
+    if (tripData['is_locked'] == true) {
+      throw Exception(
+        'This trip is locked by the leader and is not accepting new members.',
+      );
     }
 
     final tripId = tripData['id'] as String;
@@ -502,6 +508,13 @@ class TripRepository {
     });
   }
 
+  /// Toggles the lock status of the trip (preventing new members).
+  Future<void> toggleTripLock(String tripId, bool isLocked) async {
+    await _client.from('trips').update({'is_locked': isLocked}).match({
+      'id': tripId,
+    });
+  }
+
   /// Updates the participants for an expense using a Diff approach.
   ///
   /// This avoids "Delete All" which can violate foreign key constraints or RLS.
@@ -542,6 +555,78 @@ class TripRepository {
       }).toList();
 
       await _client.from('expense_participants').insert(participantsData);
+    }
+  }
+
+  /// Removes a member from the trip, cleaning up all their data.
+  ///
+  /// 1. Checks if last leader (prevent removal).
+  /// 2. Deletes from expense_participants (removes from splits).
+  /// 3. Deletes from expenses (removes paid items).
+  /// 4. Deletes from trip_members.
+  Future<void> removeMember(String tripId, String userId) async {
+    // 0. Safety Check: Last Leader
+    final member = await _client.from('trip_members').select().match({
+      'trip_id': tripId,
+      'user_id': userId,
+    }).single();
+
+    final role = member['role'] as String;
+
+    if (role == 'leader') {
+      final leaders = await _client.from('trip_members').select().match({
+        'trip_id': tripId,
+        'role': 'leader',
+      });
+
+      if (leaders.length == 1) {
+        throw Exception(
+          'Cannot remove the last leader. Promote someone else first.',
+        );
+      }
+    }
+
+    try {
+      // 1. Cleanup Splits (expense_participants)
+      // This might fail silently if RLS blocked, but if we proceed to step 3 and succeed, they are gone anyway via cascade?
+      // No, we must ensure these are gone.
+      // However, the policy "Leaders can delete anyone" should cover it.
+      await _client
+          .from('expense_participants')
+          .delete()
+          .match({'user_id': userId})
+          .inFilter(
+            'expense_id',
+            (await _client.from('expenses').select('id').eq('trip_id', tripId))
+                .map((e) => e['id'])
+                .toList(),
+          );
+
+      // 2. Cleanup Expenses Paid (expenses)
+      await _client.from('expenses').delete().match({
+        'trip_id': tripId,
+        'paid_by': userId,
+      });
+
+      // 3. Remove Member (trip_members)
+      // Ensure we verify deletion.
+      final result = await _client.from('trip_members').delete().match({
+        'trip_id': tripId,
+        'user_id': userId,
+      }).select();
+
+      if (result.isEmpty) {
+        // This means RLS blocked the deletion or the member was already gone.
+        // We assume RLS block for now.
+        throw Exception(
+          'Failed to remove member. The database blocked the action.',
+        );
+      }
+    } catch (e) {
+      if (e is PostgrestException) {
+        throw Exception('Database Error: ${e.message}');
+      }
+      rethrow;
     }
   }
 

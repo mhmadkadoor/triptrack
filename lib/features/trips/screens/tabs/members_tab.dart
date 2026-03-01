@@ -132,6 +132,58 @@ class MembersTab extends ConsumerWidget {
                       },
                     ),
                     const Divider(),
+                    // Lock Trip Toggle (Prevent new joins)
+                    SwitchListTile(
+                      title: const Text('Lock Trip (Prevent Joins)'),
+                      subtitle: const Text(
+                        'Prevent new members from joining via invite code.',
+                      ),
+                      value: trip.isLocked,
+                      onChanged: (newValue) async {
+                        // Warning Logic: Unlocking a finished/settled trip
+                        if (!newValue && trip.phase != TripPhase.active) {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (c) => AlertDialog(
+                              title: const Text('Warning: Settlement Phase'),
+                              content: const Text(
+                                'This trip is in the settlement phase. Allowing new members now might complicate the final balances. Are you sure you want to unlock it?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(c, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(c, true),
+                                  child: const Text(
+                                    'Unlock Anyway',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirm != true) return;
+                        }
+
+                        // Apply Change
+                        try {
+                          await ref
+                              .read(tripRepositoryProvider)
+                              .toggleTripLock(tripId, newValue);
+                          ref.invalidate(tripProvider(tripId));
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    const Divider(),
                     if (isActive)
                       Padding(
                         padding: const EdgeInsets.symmetric(
@@ -211,7 +263,7 @@ class MembersTab extends ConsumerWidget {
                             }
                           },
                           icon: const Icon(Icons.lock_outline),
-                          label: const Text('Finish & Lock Trip'),
+                          label: const Text('Finish Trip (Start Settlement)'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Theme.of(
                               context,
@@ -291,160 +343,290 @@ class MembersTab extends ConsumerWidget {
                     title: Text(name + (isMe ? ' (You)' : '')),
                     subtitle: Text(member.role.name.toUpperCase()),
                     trailing: amILeader
-                        ? PopupMenuButton<TripRole>(
-                            icon: const Icon(Icons.edit_outlined),
-                            tooltip: 'Change Role',
-                            onSelected: (newRole) async {
-                              if (newRole == member.role) return;
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              PopupMenuButton<TripRole>(
+                                icon: const Icon(Icons.edit_outlined),
+                                tooltip: 'Change Role',
+                                onSelected: (newRole) async {
+                                  if (newRole == member.role) return;
 
-                              // Special Handling for Downgrade to Hiker (Destructive)
-                              if (newRole == TripRole.hiker) {
-                                bool isChecked = false;
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (c) {
-                                    return StatefulBuilder(
-                                      builder: (context, setState) {
-                                        return AlertDialog(
-                                          title: const Text(
-                                            'Warning: Data Loss',
-                                            style: TextStyle(color: Colors.red),
-                                          ),
-                                          content: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text(
-                                                'Downgrading to Hiker will permanently delete all expenses paid by this member. This cannot be undone.',
-                                                style: TextStyle(
-                                                  color: Colors.red,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 16),
-                                              CheckboxListTile(
-                                                value: isChecked,
-                                                onChanged: (val) {
-                                                  setState(() {
-                                                    isChecked = val ?? false;
-                                                  });
-                                                },
-                                                title: const Text(
-                                                  'I understand',
-                                                ),
-                                                controlAffinity:
-                                                    ListTileControlAffinity
-                                                        .leading,
-                                                contentPadding: EdgeInsets.zero,
-                                              ),
-                                            ],
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(c, false),
-                                              child: const Text('Cancel'),
-                                            ),
-                                            TextButton(
-                                              onPressed: isChecked
-                                                  ? () => Navigator.pop(c, true)
-                                                  : null,
-                                              child: const Text(
-                                                'Downgrade',
+                                  // Special Handling for Downgrade to Hiker (Destructive)
+                                  if (newRole == TripRole.hiker) {
+                                    bool isChecked = false;
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (c) {
+                                        return StatefulBuilder(
+                                          builder: (context, setState) {
+                                            return AlertDialog(
+                                              title: const Text(
+                                                'Warning: Data Loss',
                                                 style: TextStyle(
                                                   color: Colors.red,
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                              content: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text(
+                                                    'Downgrading to Hiker will permanently delete all expenses paid by this member. This cannot be undone.',
+                                                    style: TextStyle(
+                                                      color: Colors.red,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 16),
+                                                  CheckboxListTile(
+                                                    value: isChecked,
+                                                    onChanged: (val) {
+                                                      setState(() {
+                                                        isChecked =
+                                                            val ?? false;
+                                                      });
+                                                    },
+                                                    title: const Text(
+                                                      'I understand',
+                                                    ),
+                                                    controlAffinity:
+                                                        ListTileControlAffinity
+                                                            .leading,
+                                                    contentPadding:
+                                                        EdgeInsets.zero,
+                                                  ),
+                                                ],
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(c, false),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: isChecked
+                                                      ? () => Navigator.pop(
+                                                          c,
+                                                          true,
+                                                        )
+                                                      : null,
+                                                  child: const Text(
+                                                    'Downgrade',
+                                                    style: TextStyle(
+                                                      color: Colors.red,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          },
                                         );
                                       },
                                     );
-                                  },
-                                );
-                                if (confirm != true) return;
-                              } else if (isMe &&
-                                  member.role == TripRole.leader &&
-                                  newRole != TripRole.leader) {
-                                // Check self-demotion checks (only if not already handled by hiker check)
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (c) => AlertDialog(
-                                    title: const Text('Demote yourself?'),
-                                    content: const Text(
-                                      'You are about to remove your Leader status. You might lose administrative access.',
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(c, false),
-                                        child: const Text('Cancel'),
+                                    if (confirm != true) return;
+                                  } else if (isMe &&
+                                      member.role == TripRole.leader &&
+                                      newRole != TripRole.leader) {
+                                    // Check self-demotion checks (only if not already handled by hiker check)
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (c) => AlertDialog(
+                                        title: const Text('Demote yourself?'),
+                                        content: const Text(
+                                          'You are about to remove your Leader status. You might lose administrative access.',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, true),
+                                            child: const Text('Confirm'),
+                                          ),
+                                        ],
                                       ),
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(c, true),
-                                        child: const Text('Confirm'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (confirm != true) return;
-                              }
-
-                              try {
-                                await ref
-                                    .read(tripRepositoryProvider)
-                                    .updateMemberRole(
-                                      tripId: tripId,
-                                      memberId: member.userId,
-                                      newRole: newRole,
                                     );
-                                ref.invalidate(tripMembersProvider(tripId));
+                                    if (confirm != true) return;
+                                  }
 
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Role updated successfully',
+                                  try {
+                                    await ref
+                                        .read(tripRepositoryProvider)
+                                        .updateMemberRole(
+                                          tripId: tripId,
+                                          memberId: member.userId,
+                                          newRole: newRole,
+                                        );
+                                    ref.invalidate(tripMembersProvider(tripId));
+
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Role updated successfully',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      // Clean up the error message to be more user friendly
+                                      final errorMessage = e
+                                          .toString()
+                                          .replaceFirst('Exception: ', '');
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Error: $errorMessage'),
+                                          backgroundColor: Colors.red,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                                itemBuilder: (context) {
+                                  return TripRole.values.map((role) {
+                                    return PopupMenuItem(
+                                      value: role,
+                                      child: Row(
+                                        children: [
+                                          if (role == member.role)
+                                            const Icon(
+                                              Icons.check,
+                                              size: 16,
+                                              color: Colors.green,
+                                            )
+                                          else
+                                            const SizedBox(width: 16),
+                                          const SizedBox(width: 8),
+                                          Text(role.name.toUpperCase()),
+                                        ],
                                       ),
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  // Clean up the error message to be more user friendly
-                                  final errorMessage = e
-                                      .toString()
-                                      .replaceFirst('Exception: ', '');
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Error: $errorMessage'),
-                                      backgroundColor: Colors.red,
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            itemBuilder: (context) {
-                              return TripRole.values.map((role) {
-                                return PopupMenuItem(
-                                  value: role,
-                                  child: Row(
-                                    children: [
-                                      if (role == member.role)
-                                        const Icon(
-                                          Icons.check,
-                                          size: 16,
-                                          color: Colors.green,
-                                        )
-                                      else
-                                        const SizedBox(width: 16),
-                                      const SizedBox(width: 8),
-                                      Text(role.name.toUpperCase()),
-                                    ],
+                                    );
+                                  }).toList();
+                                },
+                              ),
+                              if (!isMe)
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.person_remove,
+                                    color: Colors.red,
                                   ),
-                                );
-                              }).toList();
-                            },
+                                  onPressed: () async {
+                                    bool isChecked = false;
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (c) {
+                                        return StatefulBuilder(
+                                          builder: (context, setState) {
+                                            return AlertDialog(
+                                              title: const Text(
+                                                'Remove Member?',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                              content: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Text(
+                                                    'Are you sure you want to remove this member from the trip? This will permanently delete any expenses they paid and remove them from all splits. This will recalculate everyone\'s balances.',
+                                                  ),
+                                                  const SizedBox(height: 16),
+                                                  CheckboxListTile(
+                                                    value: isChecked,
+                                                    onChanged: (val) {
+                                                      setState(() {
+                                                        isChecked =
+                                                            val ?? false;
+                                                      });
+                                                    },
+                                                    title: const Text(
+                                                      'I understand the consequences',
+                                                    ),
+                                                    controlAffinity:
+                                                        ListTileControlAffinity
+                                                            .leading,
+                                                  ),
+                                                ],
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(c, false),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: isChecked
+                                                      ? () => Navigator.pop(
+                                                          c,
+                                                          true,
+                                                        )
+                                                      : null,
+                                                  child: const Text(
+                                                    'Remove',
+                                                    style: TextStyle(
+                                                      color: Colors.red,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      },
+                                    );
+
+                                    if (confirm == true) {
+                                      try {
+                                        await ref
+                                            .read(tripRepositoryProvider)
+                                            .removeMember(
+                                              tripId,
+                                              member.userId,
+                                            );
+                                        // Invalidate providers
+                                        ref.invalidate(
+                                          tripMembersProvider(tripId),
+                                        );
+                                        ref.invalidate(
+                                          expensesProvider(tripId),
+                                        );
+
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Member removed'),
+                                              backgroundColor: Colors.green,
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Error: $e'),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    }
+                                  },
+                                ),
+                            ],
                           )
                         : (isLeader
                               ? const Chip(label: Text('Leader'))
