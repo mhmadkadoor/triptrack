@@ -25,6 +25,7 @@ class Trip extends Equatable {
   final TripRole defaultJoinRole;
   final String createdBy;
   final DateTime createdAt;
+  final bool allowSelfExclusion;
 
   const Trip({
     required this.id,
@@ -36,6 +37,7 @@ class Trip extends Equatable {
     this.defaultJoinRole = TripRole.contributor,
     required this.createdBy,
     required this.createdAt,
+    this.allowSelfExclusion = true,
   });
 
   factory Trip.fromJson(Map<String, dynamic> json) {
@@ -51,6 +53,7 @@ class Trip extends Equatable {
       ),
       createdBy: json['created_by'] as String,
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+      allowSelfExclusion: json['allow_self_exclusion'] as bool? ?? true,
     );
   }
 

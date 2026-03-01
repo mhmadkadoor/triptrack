@@ -9,6 +9,81 @@ part of 'balances_provider.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
+@ProviderFor(savedSettlements)
+final savedSettlementsProvider = SavedSettlementsFamily._();
+
+final class SavedSettlementsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<Settlement>>,
+          List<Settlement>,
+          Stream<List<Settlement>>
+        >
+    with $FutureModifier<List<Settlement>>, $StreamProvider<List<Settlement>> {
+  SavedSettlementsProvider._({
+    required SavedSettlementsFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'savedSettlementsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$savedSettlementsHash();
+
+  @override
+  String toString() {
+    return r'savedSettlementsProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<List<Settlement>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<Settlement>> create(Ref ref) {
+    final argument = this.argument as String;
+    return savedSettlements(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is SavedSettlementsProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$savedSettlementsHash() => r'da9d5ee21dfadde0ceb7c47639c91e8c40b692f6';
+
+final class SavedSettlementsFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<List<Settlement>>, String> {
+  SavedSettlementsFamily._()
+    : super(
+        retry: null,
+        name: r'savedSettlementsProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  SavedSettlementsProvider call(String tripId) =>
+      SavedSettlementsProvider._(argument: tripId, from: this);
+
+  @override
+  String toString() => r'savedSettlementsProvider';
+}
+
 @ProviderFor(netBalances)
 final netBalancesProvider = NetBalancesFamily._();
 

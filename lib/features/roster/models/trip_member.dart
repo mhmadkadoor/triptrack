@@ -45,6 +45,16 @@ class TripMember extends Equatable {
     this.profile, // Add profile to constructor
   });
 
+  factory TripMember.empty() {
+    return TripMember(
+      tripId: '',
+      userId: '',
+      role: TripRole.hiker,
+      exitStatus: ExitStatus.none,
+      joinedAt: DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
   factory TripMember.fromJson(Map<String, dynamic> json) {
     return TripMember(
       tripId: json['trip_id'] as String,

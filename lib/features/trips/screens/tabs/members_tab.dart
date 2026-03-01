@@ -5,6 +5,9 @@ import '../../providers/trip_provider.dart';
 import '../../models/trip.dart'; // import TripPhase
 import '../../../roster/models/trip_member.dart';
 import '../../../auth/providers/auth_provider.dart'; // Add auth provider
+import '../../../ledger/providers/balances_provider.dart';
+
+import '../../../trips/providers/trip_repository.dart';
 
 class MembersTab extends ConsumerWidget {
   final String tripId;
@@ -98,85 +101,128 @@ class MembersTab extends ConsumerWidget {
                     false;
                 final isActive = trip.phase == TripPhase.active;
 
-                if (!isLeader || !isActive) return const SizedBox.shrink();
+                if (!isLeader) return const SizedBox.shrink();
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 8.0,
-                  ),
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (c) => AlertDialog(
-                          title: const Text('Finish & Lock Trip?'),
-                          content: const Text(
-                            'Are you sure? This will lock the ledger and no more expenses can be added. '
-                            'Balances will be final.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(c, false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(c, true),
-                              child: const Text(
-                                'Finish Trip',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-
-                      if (confirm == true) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Leader Toggle for Splits
+                    SwitchListTile(
+                      title: const Text('Allow Self-Exclusion'),
+                      subtitle: const Text(
+                        'Allow members to remove themselves from expenses.',
+                      ),
+                      value: trip.allowSelfExclusion,
+                      onChanged: (value) async {
                         try {
                           await ref
                               .read(tripRepositoryProvider)
-                              .finishTrip(tripId);
-
-                          // Wait for DB commit
-                          await Future.delayed(
-                            const Duration(milliseconds: 300),
-                          );
-
+                              .toggleSelfExclusion(tripId, value);
                           // Invalidate to refresh UI
                           ref.invalidate(tripProvider(tripId));
-                          ref.invalidate(userTripsProvider);
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Trip marked as finished!'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error: $e'),
-                                backgroundColor: Colors.red,
+                              const SnackBar(
+                                content: Text('Failed to update setting'),
                               ),
                             );
                           }
                         }
-                      }
-                    },
-                    icon: const Icon(Icons.lock_outline),
-                    label: const Text('Finish & Lock Trip'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.errorContainer,
-                      foregroundColor: Theme.of(
-                        context,
-                      ).colorScheme.onErrorContainer,
+                      },
                     ),
-                  ),
+                    const Divider(),
+                    if (isActive)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 8.0,
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (c) => AlertDialog(
+                                title: const Text('Finish & Lock Trip?'),
+                                content: const Text(
+                                  'Are you sure? This will lock the ledger and no more expenses can be added. '
+                                  'Balances will be final.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(c, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(c, true),
+                                    child: const Text(
+                                      'Finish Trip',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (confirm == true) {
+                              try {
+                                // Calculate final settlements before locking
+                                // We ensure we have the latest balances.
+                                // Ideally show a loader while checking.
+                                final balances = ref.read(
+                                  netBalancesProvider(tripId),
+                                );
+                                final settlements = calculateSettlements(
+                                  balances,
+                                  tripId,
+                                );
+
+                                await ref
+                                    .read(tripRepositoryProvider)
+                                    .finishTrip(tripId, settlements);
+
+                                // Wait for DB commit
+                                await Future.delayed(
+                                  const Duration(milliseconds: 300),
+                                );
+
+                                // Invalidate to refresh UI
+                                ref.invalidate(tripProvider(tripId));
+                                ref.invalidate(userTripsProvider);
+
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Trip marked as finished!'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.lock_outline),
+                          label: const Text('Finish & Lock Trip'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.errorContainer,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onErrorContainer,
+                          ),
+                        ),
+                      ),
+                  ],
                 );
               },
               loading: () => const SizedBox.shrink(),
