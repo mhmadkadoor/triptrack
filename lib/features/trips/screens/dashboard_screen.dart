@@ -43,43 +43,47 @@ class DashboardScreen extends ConsumerWidget {
               .where((t) => t.phase != TripPhase.active)
               .toList();
 
-          return ListView(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            children: [
-              if (activeTrips.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 8.0,
-                  ),
-                  child: Text(
-                    'ACTIVE TRIPS',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
+          return RefreshIndicator(
+            onRefresh: () => ref.refresh(userTripsProvider.future),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              children: [
+                if (activeTrips.isNotEmpty) ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                    child: Text(
+                      'ACTIVE TRIPS',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
                     ),
                   ),
-                ),
-                ...activeTrips.map((trip) => _TripListTile(trip: trip)),
-              ],
-              if (pastTrips.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 8.0,
-                  ),
-                  child: Text(
-                    'PAST TRIPS',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
+                  ...activeTrips.map((trip) => _TripListTile(trip: trip)),
+                ],
+                if (pastTrips.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                    child: Text(
+                      'PAST TRIPS',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
                     ),
                   ),
-                ),
-                ...pastTrips.map((trip) => _TripListTile(trip: trip)),
+                  ...pastTrips.map((trip) => _TripListTile(trip: trip)),
+                ],
               ],
-            ],
+            ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -115,7 +119,7 @@ class DashboardScreen extends ConsumerWidget {
     // We use a simple dialog for input
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Join a Trip'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -137,7 +141,7 @@ class DashboardScreen extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -154,7 +158,7 @@ class DashboardScreen extends ConsumerWidget {
 
               // Show loading? Ideally we'd use a state provider or just close and show snackbar progress.
               // For simplicity:
-              Navigator.of(context).pop(); // Close dialog first
+              Navigator.of(dialogContext).pop(); // Close dialog first
 
               try {
                 final scaffold = ScaffoldMessenger.of(context);
@@ -162,7 +166,11 @@ class DashboardScreen extends ConsumerWidget {
                   const SnackBar(content: Text('Joining trip...')),
                 );
 
+                await Future.delayed(
+                  const Duration(milliseconds: 300),
+                ); // Let Supabase commit
                 await ref.read(tripRepositoryProvider).joinTrip(code);
+                ref.invalidate(userTripsProvider);
 
                 scaffold.hideCurrentSnackBar();
                 scaffold.showSnackBar(
@@ -172,14 +180,19 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 );
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Error: ${e.toString().replaceAll("Exception: ", "")}',
+                try {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Error: ${e.toString().replaceAll("Exception: ", "")}',
+                      ),
+                      backgroundColor: Colors.red,
                     ),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                  );
+                } catch (_) {
+                  // Fallback if context is invalid
+                  debugPrint('Failed to show error snackbar: $e');
+                }
               }
             },
             child: const Text('Join'),

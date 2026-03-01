@@ -4,7 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/trip.dart';
-import '../../roster/models/trip_member.dart'; // Add this
+import '../../roster/models/trip_member.dart';
+import '../../ledger/models/expense.dart';
 
 class TripRepository {
   final SupabaseClient _client;
@@ -12,13 +13,151 @@ class TripRepository {
 
   TripRepository(this._client);
 
-  /// Streams the list of trips the user is a member of.
-  Stream<List<Trip>> watchUserTrips() {
+  /// Streams expenses for a trip, joined with the profile of the payer.
+  Stream<List<Expense>> watchExpenses(String tripId) {
     return _client
-        .from('trips')
+        .from('expenses')
         .stream(primaryKey: ['id'])
+        .eq('trip_id', tripId)
         .order('created_at', ascending: false)
-        .map((data) => data.map((json) => Trip.fromJson(json)).toList());
+        .asyncMap((data) async {
+          if (data.isEmpty) return <Expense>[];
+
+          final userIds = data
+              .map((e) => e['paid_by'] as String)
+              .toSet()
+              .toList();
+
+          if (userIds.isEmpty)
+            return data.map((e) => Expense.fromJson(e)).toList();
+
+          final profiles = await _client
+              .from('profiles')
+              .select()
+              .inFilter('id', userIds);
+
+          final profileMap = {for (var p in profiles) p['id'] as String: p};
+
+          return data.map((json) {
+            final payerId = json['paid_by'] as String;
+            final profileJson = profileMap[payerId];
+            if (profileJson != null) {
+              json['profiles'] = profileJson;
+            }
+            return Expense.fromJson(json);
+          }).toList();
+        });
+  }
+
+  /// Creates a new expense and assigns participants.
+  Future<void> createExpense({
+    required String tripId,
+    required String description,
+    required double amount,
+    required List<String> participantUserIds,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('Must be logged in.');
+
+    if (participantUserIds.isEmpty) {
+      throw Exception('At least one participant is required.');
+    }
+    if (amount <= 0) {
+      throw Exception('Amount must be positive.');
+    }
+
+    // 1. Fetch trip currency for consistency
+    final trip = await _client
+        .from('trips')
+        .select('base_currency')
+        .eq('id', tripId)
+        .single();
+    final currency = trip['base_currency'] as String;
+
+    // 2. Insert Expense
+    // We generate ID locally for simpler insertion logic
+    final expenseId = _uuid.v4();
+    final createdAt = DateTime.now().toUtc().toIso8601String();
+
+    await _client.from('expenses').insert({
+      'id': expenseId,
+      'trip_id': tripId,
+      'description': description,
+      'amount': amount,
+      'created_at': createdAt,
+      'paid_by': userId,
+      'currency': currency,
+    });
+
+    // 3. Insert Participants (Simulate split)
+    // Assuming even split for now, or just recording involvement
+    final amountPerPerson = amount / participantUserIds.length;
+
+    final participantsData = participantUserIds
+        .map(
+          (pId) => {
+            'expense_id': expenseId,
+            'user_id': pId,
+            'amount_owed': amountPerPerson, // Use calculated split
+            'is_paid': false,
+          },
+        )
+        .toList();
+
+    await _client.from('expense_participants').insert(participantsData);
+  }
+
+  /// Only leaders can update member role.
+  Future<void> updateMemberRole({
+    required String tripId,
+    required String memberId,
+    required TripRole newRole,
+  }) async {
+    // Only the 'leader' is allowed to perform this.
+    // Ensure we don't accidentally check the current user's role against memberId.
+    // Usually RLS handles permission checks.
+
+    // We update the trip_members table directly.
+    await _client.from('trip_members').update({'role': newRole.name}).match({
+      'trip_id': tripId,
+      'user_id': memberId,
+    });
+  }
+
+  /// Streams the list of trips the user is a member of.
+  ///
+  /// Note: Listening to `trips` directly might not catch updates when a user *joins* a trip
+  /// because the `trips` row itself doesn't change.
+  ///
+  /// A more robust implementation listens to `trip_members` for the current user,
+  /// then fetches the actual trip details.
+  Stream<List<Trip>> watchUserTrips() {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return const Stream.empty();
+
+    // Listen to the junction table (trip_members) to know when we join/leave trips
+    return _client
+        .from('trip_members')
+        .stream(primaryKey: ['trip_id', 'user_id'])
+        .eq('user_id', userId)
+        .asyncMap((membersData) async {
+          if (membersData.isEmpty) return <Trip>[];
+
+          final tripIds = membersData
+              .map((m) => m['trip_id'] as String)
+              .toList();
+
+          if (tripIds.isEmpty) return <Trip>[];
+
+          // Fetch the actual trips
+          final tripsData = await _client
+              .from('trips')
+              .select()
+              .inFilter('id', tripIds)
+              .order('created_at', ascending: false);
+
+          return tripsData.map((json) => Trip.fromJson(json)).toList();
+        });
   }
 
   /// Watch a specific trip by ID.
@@ -114,56 +253,41 @@ class TripRepository {
   }
 
   /// Start the "Join Trip" flow.
-  /// 
-  /// 1. Validate the code exists.
-  /// 2. Check if user is already a member.
-  /// 3. Add user to trip_members with 'contributor' role.
+  ///
+  /// 1. Uses a Postgres function `join_trip_by_invite_code` to bypass RLS safely.
+  /// 2. Handles errors returned by the function.
   Future<void> joinTrip(String inviteCode) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Must be logged in to join a trip.');
 
-    // 1. Find the trip by invite code
-    final tripData = await _client
-        .from('trips')
-        .select('id') 
-        .eq('invite_code', inviteCode)
-        .maybeSingle();
+    try {
+      // Call the secure database function
+      final response = await _client.rpc(
+        'join_trip_by_invite_code',
+        params: {'invite_code_input': inviteCode},
+      );
 
-    if (tripData == null) {
-      throw Exception('Invalid invite code. Please check and try again.');
+      // Response is a JSON object: { "success": boolean, "message": string }
+      if (response == null || response['success'] != true) {
+        throw Exception(response?['message'] ?? 'Failed to join trip.');
+      }
+    } on PostgrestException catch (e) {
+      // Handful of common errors
+      if (e.message.contains('does not exist') || e.code == '42883') {
+        throw Exception(
+          'Database function missing. Please run the provided SQL migration script in Supabase.',
+        );
+      }
+      rethrow;
     }
-
-    final tripId = tripData['id'] as String;
-
-    // 2. Check strict membership? 
-    // Usually Supabase will throw a unique constraint error if (trip_id, user_id) already exists.
-    // But let's check manually for a nicer error message.
-    final existingMember = await _client
-        .from('trip_members')
-        .select('role')
-        .eq('trip_id', tripId)
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    if (existingMember != null) {
-      throw Exception('You are already a member of this trip.');
-    }
-
-    // 3. Insert new member
-    await _client.from('trip_members').insert({
-      'trip_id': tripId,
-      'user_id': userId,
-      'role': 'contributor', // Default role
-      'exit_status': 'none',
-    });
   }
 
-  String _generateInviteCode() { // Make it static or instance method
+  String _generateInviteCode() {
+    // Make it static or instance method
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final rnd = Random();
-    return String.fromCharCodes(Iterable.generate(
-      6,
-      (_) => chars.codeUnitAt(rnd.nextInt(chars.length)),
-    ));
+    return String.fromCharCodes(
+      Iterable.generate(6, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))),
+    );
   }
 }

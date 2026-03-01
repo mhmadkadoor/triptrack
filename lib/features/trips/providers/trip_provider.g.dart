@@ -86,7 +86,185 @@ final class UserTripsProvider
   }
 }
 
-String _$userTripsHash() => r'1af06659dd40061511f4f0fcb24697d3121ae621';
+String _$userTripsHash() => r'ab82c0d32ae44bb91dd9c8d0d92236e8de9d4592';
+
+@ProviderFor(joinTrip)
+final joinTripProvider = JoinTripFamily._();
+
+final class JoinTripProvider
+    extends $FunctionalProvider<AsyncValue<void>, void, FutureOr<void>>
+    with $FutureModifier<void>, $FutureProvider<void> {
+  JoinTripProvider._({
+    required JoinTripFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'joinTripProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$joinTripHash();
+
+  @override
+  String toString() {
+    return r'joinTripProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<void> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<void> create(Ref ref) {
+    final argument = this.argument as String;
+    return joinTrip(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is JoinTripProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$joinTripHash() => r'bcb6275f2f91953d46f7172294eb879a3abb54d9';
+
+final class JoinTripFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<void>, String> {
+  JoinTripFamily._()
+    : super(
+        retry: null,
+        name: r'joinTripProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  JoinTripProvider call(String inviteCode) =>
+      JoinTripProvider._(argument: inviteCode, from: this);
+
+  @override
+  String toString() => r'joinTripProvider';
+}
+
+@ProviderFor(createExpense)
+final createExpenseProvider = CreateExpenseFamily._();
+
+final class CreateExpenseProvider
+    extends $FunctionalProvider<AsyncValue<void>, void, FutureOr<void>>
+    with $FutureModifier<void>, $FutureProvider<void> {
+  CreateExpenseProvider._({
+    required CreateExpenseFamily super.from,
+    required ({
+      String tripId,
+      String description,
+      double amount,
+      List<String> participantUserIds,
+    })
+    super.argument,
+  }) : super(
+         retry: null,
+         name: r'createExpenseProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$createExpenseHash();
+
+  @override
+  String toString() {
+    return r'createExpenseProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<void> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<void> create(Ref ref) {
+    final argument =
+        this.argument
+            as ({
+              String tripId,
+              String description,
+              double amount,
+              List<String> participantUserIds,
+            });
+    return createExpense(
+      ref,
+      tripId: argument.tripId,
+      description: argument.description,
+      amount: argument.amount,
+      participantUserIds: argument.participantUserIds,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CreateExpenseProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$createExpenseHash() => r'bfc39c3373470045438c8858a12b5687b05ee9ef';
+
+final class CreateExpenseFamily extends $Family
+    with
+        $FunctionalFamilyOverride<
+          FutureOr<void>,
+          ({
+            String tripId,
+            String description,
+            double amount,
+            List<String> participantUserIds,
+          })
+        > {
+  CreateExpenseFamily._()
+    : super(
+        retry: null,
+        name: r'createExpenseProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  CreateExpenseProvider call({
+    required String tripId,
+    required String description,
+    required double amount,
+    required List<String> participantUserIds,
+  }) => CreateExpenseProvider._(
+    argument: (
+      tripId: tripId,
+      description: description,
+      amount: amount,
+      participantUserIds: participantUserIds,
+    ),
+    from: this,
+  );
+
+  @override
+  String toString() => r'createExpenseProvider';
+}
 
 @ProviderFor(trip)
 final tripProvider = TripFamily._();
@@ -229,4 +407,79 @@ final class TripMembersFamily extends $Family
 
   @override
   String toString() => r'tripMembersProvider';
+}
+
+@ProviderFor(expenses)
+final expensesProvider = ExpensesFamily._();
+
+final class ExpensesProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<Expense>>,
+          List<Expense>,
+          Stream<List<Expense>>
+        >
+    with $FutureModifier<List<Expense>>, $StreamProvider<List<Expense>> {
+  ExpensesProvider._({
+    required ExpensesFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'expensesProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$expensesHash();
+
+  @override
+  String toString() {
+    return r'expensesProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<List<Expense>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<Expense>> create(Ref ref) {
+    final argument = this.argument as String;
+    return expenses(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ExpensesProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$expensesHash() => r'3de42a1090d47fcb44fda7538369e4f6b41ad217';
+
+final class ExpensesFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<List<Expense>>, String> {
+  ExpensesFamily._()
+    : super(
+        retry: null,
+        name: r'expensesProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  ExpensesProvider call(String tripId) =>
+      ExpensesProvider._(argument: tripId, from: this);
+
+  @override
+  String toString() => r'expensesProvider';
 }
