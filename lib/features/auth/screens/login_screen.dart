@@ -17,6 +17,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _nameController = TextEditingController();
   bool _isSignUp = false;
   bool _isLoading = false;
+  bool _dataAgreement = false;
 
   @override
   void dispose() {
@@ -138,9 +139,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   obscureText: true,
                 ),
+                if (_isSignUp) ...[
+                  CheckboxListTile(
+                    value: _dataAgreement,
+                    onChanged: (val) {
+                      setState(() {
+                        _dataAgreement = val ?? false;
+                      });
+                    },
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: const Text(
+                      'I agree to the collection of my data. I understand that if I delete my account, all my data (profile, expenses, and trips I exclusively lead) will be permanently erased without a trace.',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 const SizedBox(height: 32),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _submit,
+                  onPressed: (_isSignUp && !_dataAgreement)
+                      ? null
+                      : (_isLoading ? null : _submit),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.all(16),
                   ),

@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../trips/models/trip.dart';
+import '../../trips/providers/trip_repository.dart';
+import '../../trips/providers/trip_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/auth_repository.dart';
 
@@ -191,6 +194,146 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _deleteAccount() async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Step 1: Check for sole leader trips
+      final atRiskTrips = await ref
+          .read(tripRepositoryProvider)
+          .getSoleLeaderTrips(user.id);
+
+      if (!mounted) return;
+
+      if (atRiskTrips.isNotEmpty) {
+        // Step 2: Show Warning
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Warning: You are a Sole Leader'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'You are the ONLY leader for the following trips:',
+                  ),
+                  const SizedBox(height: 8),
+                  ...atRiskTrips.map(
+                    (t) => Text(
+                      '• ${t.name}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'If you delete your account now, these trips and all their expenses will be permanently destroyed. We advise you to assign another leader first.',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'Proceed Anyway',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (proceed != true) {
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
+      if (!mounted) return;
+
+      // Step 3: Final Confirmation
+      final confirmController = TextEditingController();
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete Account Permanently?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'This action cannot be undone. All your expenses, profile data, '
+                'and trip memberships will be completely erased as if you never existed.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: confirmController,
+                decoration: const InputDecoration(
+                  labelText: 'Type DELETE to confirm',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: confirmController,
+              builder: (context, val, _) {
+                return TextButton(
+                  onPressed: val.text == 'DELETE'
+                      ? () => Navigator.pop(context, true)
+                      : null,
+                  child: const Text(
+                    'Confirm Deletion',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+
+      if (confirm == true) {
+        if (!mounted) return;
+        // Proceed with deletion
+        await ref.read(authRepositoryProvider).deleteAccount(user.id);
+        // Auth state change will likely trigger redirection, but let's be safe
+        // if user is already signed out by repo
+        // Navigator pop happens automatically by auth state listener usually
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete account: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -295,6 +438,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   label: const Text('Save Changes'),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
+              Center(
+                child: TextButton.icon(
+                  onPressed: _isLoading ? null : _deleteAccount,
+                  icon: const Icon(Icons.delete_forever, color: Colors.red),
+                  label: const Text(
+                    'Delete Account',
+                    style: TextStyle(color: Colors.red),
                   ),
                 ),
               ),

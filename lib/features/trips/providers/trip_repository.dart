@@ -204,13 +204,53 @@ class TripRepository {
     }
   }
 
+  /// Finds all trips where the user is the ONLY leader.
+  /// These trips are at risk of being deleted if the user deletes their account.
+  Future<List<Trip>> getSoleLeaderTrips(String userId) async {
+    // 1. Get all trips where user is a leader
+    // We use .select() instead of .get() or other supabase v1 methods
+    final myLeaderTrips = await _client
+        .from('trip_members')
+        .select('trip_id')
+        .eq('user_id', userId)
+        .eq('role', 'leader');
+
+    if (myLeaderTrips.isEmpty) return [];
+
+    // Cast the list safely
+    final tripIds = (myLeaderTrips as List)
+        .map((t) => t['trip_id'] as String)
+        .toList();
+
+    // 2. For these trips, find if there are OTHER leaders
+    final otherLeaders = await _client
+        .from('trip_members')
+        .select('trip_id')
+        .inFilter('trip_id', tripIds)
+        .eq('role', 'leader')
+        .neq('user_id', userId);
+
+    final tripsWithOtherLeaders = (otherLeaders as List)
+        .map((t) => t['trip_id'] as String)
+        .toSet();
+
+    // 3. Filter down to only trips where user is the ONLY leader
+    final soleLeaderTripIds = tripIds
+        .where((id) => !tripsWithOtherLeaders.contains(id))
+        .toList();
+
+    if (soleLeaderTripIds.isEmpty) return [];
+
+    // 4. Fetch full trip details for display
+    final tripsData = await _client
+        .from('trips')
+        .select()
+        .inFilter('id', soleLeaderTripIds);
+
+    return (tripsData as List).map((json) => Trip.fromJson(json)).toList();
+  }
+
   /// Streams the list of trips the user is a member of.
-  ///
-  /// Note: Listening to `trips` directly might not catch updates when a user *joins* a trip
-  /// because the `trips` row itself doesn't change.
-  ///
-  /// A more robust implementation listens to `trip_members` for the current user,
-  /// then fetches the actual trip details.
   Stream<List<Trip>> watchUserTrips() {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return const Stream.empty();
@@ -256,25 +296,6 @@ class TripRepository {
         .stream(primaryKey: ['trip_id', 'user_id'])
         .eq('trip_id', tripId)
         .asyncMap((data) async {
-          // Since stream() doesn't support deep joins easily (it returns the raw table data),
-          // updates to Profiles won't trigger this stream, but updates to Members will.
-          // We need to fetch profiles for these members.
-          // Optimization: If the roster is huge, this is N+1, but for a trip it is small.
-          // Better approach might be real-time listeners on both, but simpler is:
-          // Just fetch profiles once or listen to them.
-
-          // Actually, .stream() in supabase-flutter is a bit limited for joins.
-          // Let's rely on standard current state fetch OR a refreshing stream.
-          // Alternatively, we can just use a simple future or separate streams.
-
-          // However, to keep it simple and reactive:
-          // We'll map the members, and for each member, we might need to fetch profile?
-          // No, that's too heavy.
-          // A better pattern for "Members List" is:
-          // stream('trip_members').eq('trip_id', id)
-          // AND separate stream('profiles').inFilter('id', memberIds)
-
-          // FOR NOW: Let's just fetch the profiles once per update.
           if (data.isEmpty) return [];
 
           final userIds = data.map((e) => e['user_id'] as String).toList();
@@ -308,8 +329,6 @@ class TripRepository {
       throw Exception('User must be logged in to create a trip');
     }
 
-    // Generate a UUID locally. RLS makes it tricky to immediately returned the inserted row
-    // when using .select() because the `trip_members` entry isn't there yet.
     final tripId = _uuid.v4();
     final inviteCode = _generateInviteCode();
 
@@ -441,12 +460,6 @@ class TripRepository {
   }
 
   /// Start the "Join Trip" flow.
-  ///
-  /// Queries the trips table to validate the invite_code and fetch default_join_role.
-  /// Then inserts the new member with that specific role.
-  ///
-  /// Note: RLS must allow SELECT on trips (or at least invite_code/default_join_role)
-  /// and INSERT on trip_members.
   Future<void> joinTrip(String inviteCode) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Must be logged in to join a trip.');
@@ -475,10 +488,6 @@ class TripRepository {
     final defaultRole =
         tripData['default_join_role'] as String? ?? 'contributor';
 
-    // 2. Check if already a member?
-    // The duplicate key violation will handle this, but friendly check helps.
-    // However, for speed/race-conditions, letting DB error is safer.
-
     try {
       // 3. Insert into trip_members
       await _client.from('trip_members').insert({
@@ -496,41 +505,11 @@ class TripRepository {
           .eq('trip_id', tripId);
 
       if (expenses.isNotEmpty) {
-        // Group insertions? Or just loop.
-        // We need to fetch existing participants to know the NEW split.
-        // Actually, "retroactive sharing" usually means adding them to the split,
-        // which reduces the amount for others.
-        // This is complex because we need to recalculate `amount_owed` for everyone.
-        // However, the prompt says: "INSERT a new row... linking this new user_id to every existing expense_id."
-
-        // Wait, if we just insert a row, the `amount_owed` for this user needs to be calculated.
-        // And the `amount_owed` for OTHERS needs to be updated.
-        // Does the system recalculate dynamically or store it?
-        // `createExpense` stores `amount_owed`.
-        // If we just insert, we might break the "sum(amount_owed) == expense.amount" invariant.
-
-        // HOWEVER, the `netBalancesProvider` calculates splits dynamically based on `count(participants)`.
-        // Let's check `balances_provider.dart`...
-        // It says: `final splitAmount = expense.amount / participants.length;`
-        // So the provider calculates it dynamically! The `amount_owed` in DB might be for caching or display.
-        // If the provider ignores `amount_owed` column and uses `participants.length`, then just inserting is safe.
-        // Let's check `createExpense` in this file...
-        // It inserts `amount_owed`.
-
-        // Let's check `balances_provider.dart` again.
-        // `final splitAmount = expense.amount / participants.length;`
-        // Yes! It calculates on the fly.
-        // So we just need to insert the participant.
-
-        // What about `amount_owed` column? We should probably put *something* there,
-        // but since the provider ignores it, maybe 0 or a dummy value is fine?
-        // Let's try to do it "right" but simplistic: insert with 0, relying on provider.
-
         final newParticipantsData = expenses.map((e) {
           return {
             'expense_id': e['id'],
             'user_id': userId,
-            'amount_owed': 0, // Placeholder, provider recalculates
+            'amount_owed': 0, // Recalculated by provider
             'is_paid': false,
           };
         }).toList();
@@ -579,8 +558,6 @@ class TripRepository {
   }
 
   /// Updates the participants for an expense using a Diff approach.
-  ///
-  /// This avoids "Delete All" which can violate foreign key constraints or RLS.
   Future<void> updateExpenseParticipants(
     String expenseId,
     List<String> newParticipantIds,
@@ -595,15 +572,12 @@ class TripRepository {
 
     // 1. Remove users who are no longer participants
     if (toRemove.isNotEmpty) {
-      final res = await _client
+      await _client
           .from('expense_participants')
           .delete()
           .match({'expense_id': expenseId})
           .inFilter('user_id', toRemove)
           .select();
-
-      // Simple check to ensure deletes happened, though RLS silent failure is tricky.
-      // If result count < diff, it might mean blocked.
     }
 
     // 2. Add new participants
@@ -622,11 +596,6 @@ class TripRepository {
   }
 
   /// Removes a member from the trip, cleaning up all their data.
-  ///
-  /// 1. Checks if last leader (prevent removal).
-  /// 2. Deletes from expense_participants (removes from splits).
-  /// 3. Deletes from expenses (removes paid items).
-  /// 4. Deletes from trip_members.
   Future<void> removeMember(String tripId, String userId) async {
     // 0. Safety Check: Last Leader
     final member = await _client.from('trip_members').select().match({
@@ -651,9 +620,6 @@ class TripRepository {
 
     try {
       // 1. Cleanup Splits (expense_participants)
-      // This might fail silently if RLS blocked, but if we proceed to step 3 and succeed, they are gone anyway via cascade?
-      // No, we must ensure these are gone.
-      // However, the policy "Leaders can delete anyone" should cover it.
       await _client
           .from('expense_participants')
           .delete()
@@ -672,15 +638,12 @@ class TripRepository {
       });
 
       // 3. Remove Member (trip_members)
-      // Ensure we verify deletion.
       final result = await _client.from('trip_members').delete().match({
         'trip_id': tripId,
         'user_id': userId,
       }).select();
 
       if (result.isEmpty) {
-        // This means RLS blocked the deletion or the member was already gone.
-        // We assume RLS block for now.
         throw Exception(
           'Failed to remove member. The database blocked the action.',
         );
@@ -694,7 +657,6 @@ class TripRepository {
   }
 
   String _generateInviteCode() {
-    // Make it static or instance method
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final rnd = Random();
     return String.fromCharCodes(

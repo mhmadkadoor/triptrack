@@ -106,4 +106,29 @@ class AuthRepository {
 
     return imageUrl;
   }
+
+  /// Deletes the user's account and all associated data.
+  ///
+  /// 1. Tries to clean up storage files (best effort).
+  /// 2. Calls RPC to delete database records (including FK cleanup).
+  /// 3. Signs out.
+  Future<void> deleteAccount(String userId) async {
+    // 1. Delete avatar from storage (clean up)
+    try {
+      final objects = await _client.storage.from('avatars').list(path: userId);
+      if (objects.isNotEmpty) {
+        final paths = objects.map((o) => '$userId/${o.name}').toList();
+        await _client.storage.from('avatars').remove(paths);
+      }
+    } catch (_) {
+      // Ignore errors if bucket is empty or inaccessible
+      // We proceed to delete account anyway
+    }
+
+    // 2. Execute the nuclear option (RPC)
+    await _client.rpc('delete_my_account');
+
+    // 3. Sign out locally
+    await signOut();
+  }
 }
