@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthRepository {
@@ -33,5 +34,76 @@ class AuthRepository {
 
   Future<void> signOut() async {
     await _client.auth.signOut();
+  }
+
+  /// Updates the user's profile information.
+  Future<void> updateUserProfile(
+    String userId, {
+    String? name,
+    String? avatarUrl,
+    String? paymentInfo,
+  }) async {
+    final updates = <String, dynamic>{};
+    if (name != null) updates['full_name'] = name;
+    if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+    if (paymentInfo != null) updates['payment_info'] = paymentInfo;
+
+    if (updates.isEmpty) return;
+
+    // Use DateTime.now().toUtc() for consistency
+    updates['updated_at'] = DateTime.now().toUtc().toIso8601String();
+
+    await _client.from('profiles').update(updates).eq('id', userId);
+  }
+
+  /// Fetches the profile data for a given user ID.
+  Future<Map<String, dynamic>?> getProfile(String userId) async {
+    try {
+      final data = await _client
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+      return data;
+    } catch (e) {
+      // In case of error (e.g. no internet), return null or rethrow
+      return null;
+    }
+  }
+
+  /// Uploads a profile image to Supabase Storage and returns the public URL.
+  Future<String> uploadProfileImage(File imageFile, String userId) async {
+    // 1. Clean up old images to free space and ensure unique URLs (cache busting)
+    try {
+      final objects = await _client.storage.from('avatars').list(path: userId);
+
+      if (objects.isNotEmpty) {
+        final pathsToDelete = objects
+            .map((obj) => '$userId/${obj.name}')
+            .toList();
+        await _client.storage.from('avatars').remove(pathsToDelete);
+      }
+    } catch (e) {
+      // Ignore cleanup errors, maybe folder doesn't exist yet
+      // or we don't have list permissions (public select usually covers this)
+    }
+
+    // 2. Generate timestamped filename to force UI refresh (busts the cache)
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final path = '$userId/profile_$timestamp.jpg';
+
+    // 3. Upload the file
+    // We maintain the folder structure avatars/{userId}/... for RLS
+    await _client.storage
+        .from('avatars')
+        .upload(path, imageFile, fileOptions: const FileOptions(upsert: true));
+
+    // 4. Get the public URL
+    final imageUrl = _client.storage.from('avatars').getPublicUrl(path);
+
+    // 5. Update the profile with the new URL
+    await updateUserProfile(userId, avatarUrl: imageUrl);
+
+    return imageUrl;
   }
 }

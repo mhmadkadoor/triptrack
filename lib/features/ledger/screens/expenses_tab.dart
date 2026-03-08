@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/widgets/user_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../trips/models/trip.dart'; // import TripPhase
 import '../../trips/providers/trip_provider.dart';
@@ -302,9 +303,6 @@ class _ExpenseTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final payerName = expense.paidByProfile?.displayName ?? 'Unknown';
-    // If no initial, use first letter of name
-    final initial = payerName.isNotEmpty ? payerName[0].toUpperCase() : '?';
-
     // Format amount
     // Ideally use NumberFormat with currency symbol map, but simple here
     final amountText =
@@ -318,10 +316,11 @@ class _ExpenseTile extends StatelessWidget {
         onTap: () => _showEditSheet(context),
         borderRadius: BorderRadius.circular(12), // Match default Card radius
         child: ListTile(
-          leading: CircleAvatar(
+          leading: UserAvatar(
+            avatarUrl: expense.paidByProfile?.avatarUrl,
+            displayName: payerName,
             backgroundColor: theme.colorScheme.primary,
-            foregroundColor: theme.colorScheme.onPrimary,
-            child: Text(initial),
+            textColor: theme.colorScheme.onPrimary,
           ),
           title: Text(
             expense.description,

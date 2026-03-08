@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/screens/profile_screen.dart';
 import '../providers/trip_provider.dart';
 import '../models/trip.dart';
 
@@ -19,6 +20,14 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('TripTrack'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {

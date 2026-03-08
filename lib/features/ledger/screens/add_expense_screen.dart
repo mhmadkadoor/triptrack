@@ -218,12 +218,16 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         );
       }
     } catch (e) {
+      final message = e.toString().replaceAll("Exception: ", "");
       if (mounted) {
+        // If the trip is locked, we must close the screen immediately
+        if (message.contains('locked this trip')) {
+          Navigator.pop(context);
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Error: ${e.toString().replaceAll("Exception: ", "")}',
-            ),
+            content: Text('Error: $message'),
             backgroundColor: Colors.red,
           ),
         );

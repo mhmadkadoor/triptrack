@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/widgets/user_avatar.dart';
 import '../../trips/models/trip.dart'; // import TripPhase
 import '../../trips/providers/trip_provider.dart';
 import '../../trips/providers/trip_repository.dart';
@@ -119,10 +120,6 @@ class BalancesTab extends ConsumerWidget {
                           final name = isMe
                               ? 'You'
                               : (profile?.displayName ?? 'User');
-                          final initial = name.isNotEmpty
-                              ? name[0].toUpperCase()
-                              : '?';
-
                           Color balanceColor;
                           String balanceText;
 
@@ -139,15 +136,11 @@ class BalancesTab extends ConsumerWidget {
 
                           return ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
+                            leading: UserAvatar(
+                              avatarUrl: profile?.avatarUrl,
+                              displayName: name,
                               backgroundColor: Colors.blueGrey.shade100,
-                              child: Text(
-                                initial,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blueGrey,
-                                ),
-                              ),
+                              textColor: Colors.blueGrey,
                             ),
                             title: Text(
                               name,
@@ -206,6 +199,11 @@ class BalancesTab extends ConsumerWidget {
                                       final toName =
                                           toMember?.profile?.displayName ??
                                           'User';
+
+                                      // Get payment info from the creditor (toMember)
+                                      final paymentInfo =
+                                          toMember?.profile?.paymentInfo;
+
                                       final amount = settlement.amount;
                                       final status = settlement.status;
 
@@ -230,6 +228,17 @@ class BalancesTab extends ConsumerWidget {
                                                   .markSettlementSent(
                                                     settlement.id!,
                                                   );
+                                              // Force refresh for instant UI feedback
+                                              await Future.delayed(
+                                                const Duration(
+                                                  milliseconds: 500,
+                                                ),
+                                              );
+                                              ref.invalidate(
+                                                savedSettlementsProvider(
+                                                  tripId,
+                                                ),
+                                              );
                                             },
                                             child: const Text('Mark as Paid'),
                                           );
@@ -246,6 +255,17 @@ class BalancesTab extends ConsumerWidget {
                                                   .confirmSettlementReceived(
                                                     settlement.id!,
                                                   );
+                                              // Force refresh for instant UI feedback
+                                              await Future.delayed(
+                                                const Duration(
+                                                  milliseconds: 500,
+                                                ),
+                                              );
+                                              ref.invalidate(
+                                                savedSettlementsProvider(
+                                                  tripId,
+                                                ),
+                                              );
                                             },
                                             child: const Text(
                                               'Confirm Receipt',
@@ -289,26 +309,56 @@ class BalancesTab extends ConsumerWidget {
                                               ],
                                             ),
                                           ),
-                                          subtitle: Row(
+                                          subtitle: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
-                                              if (status ==
-                                                  SettlementStatus.confirmed)
-                                                const Icon(
-                                                  Icons.check_circle,
-                                                  size: 16,
-                                                  color: Colors.green,
-                                                ),
-                                              if (status ==
-                                                  SettlementStatus.confirmed)
-                                                const SizedBox(width: 4),
-                                              Text(
-                                                statusText,
-                                                style: TextStyle(
-                                                  color: statusColor,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                ),
+                                              Row(
+                                                children: [
+                                                  if (status ==
+                                                      SettlementStatus
+                                                          .confirmed)
+                                                    const Icon(
+                                                      Icons.check_circle,
+                                                      size: 16,
+                                                      color: Colors.green,
+                                                    ),
+                                                  if (status ==
+                                                      SettlementStatus
+                                                          .confirmed)
+                                                    const SizedBox(width: 4),
+                                                  Text(
+                                                    statusText,
+                                                    style: TextStyle(
+                                                      color: statusColor,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
+                                              // Show payment info if I am the payer (debtor) and payment info exists
+                                              if (isPayer &&
+                                                  paymentInfo != null &&
+                                                  paymentInfo.isNotEmpty &&
+                                                  status ==
+                                                      SettlementStatus.pending)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        top: 4.0,
+                                                      ),
+                                                  child: SelectableText(
+                                                    'Send to: $paymentInfo',
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      fontStyle:
+                                                          FontStyle.italic,
+                                                      color: Colors.blueGrey,
+                                                    ),
+                                                  ),
+                                                ),
                                             ],
                                           ),
                                           trailing: Row(

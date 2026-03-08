@@ -218,20 +218,10 @@ class MembersTab extends ConsumerWidget {
 
                             if (confirm == true) {
                               try {
-                                // Calculate final settlements before locking
-                                // We ensure we have the latest balances.
-                                // Ideally show a loader while checking.
-                                final balances = ref.read(
-                                  netBalancesProvider(tripId),
-                                );
-                                final settlements = calculateSettlements(
-                                  balances,
-                                  tripId,
-                                );
-
+                                // Calculate final settlements inside repository before locking
                                 await ref
                                     .read(tripRepositoryProvider)
-                                    .finishTrip(tripId, settlements);
+                                    .finishTrip(tripId);
 
                                 // Wait for DB commit
                                 await Future.delayed(

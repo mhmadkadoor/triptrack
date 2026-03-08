@@ -7,6 +7,7 @@ import '../models/trip.dart';
 import '../../roster/models/trip_member.dart';
 import '../../ledger/models/expense.dart';
 import '../../ledger/models/settlement.dart';
+import '../../ledger/providers/balances_provider.dart';
 
 class TripRepository {
   final SupabaseClient _client;
@@ -105,15 +106,27 @@ class TripRepository {
     final expenseId = _uuid.v4();
     final createdAt = DateTime.now().toUtc().toIso8601String();
 
-    await _client.from('expenses').insert({
-      'id': expenseId,
-      'trip_id': tripId,
-      'description': description,
-      'amount': amount,
-      'created_at': createdAt,
-      'paid_by': userId,
-      'currency': currency,
-    });
+    try {
+      await _client.from('expenses').insert({
+        'id': expenseId,
+        'trip_id': tripId,
+        'description': description,
+        'amount': amount,
+        'created_at': createdAt,
+        'paid_by': userId,
+        'currency': currency,
+      });
+    } on PostgrestException catch (e) {
+      // 42501 is the code for insufficient_privilege (RLS violation)
+      if (e.code == '42501' ||
+          e.message.contains('row-level security') ||
+          e.message.contains('policy')) {
+        throw Exception(
+          'Cannot add expense. The Leader has locked this trip for settlement.',
+        );
+      }
+      rethrow;
+    }
 
     // 3. Insert Participants (Simulate split)
     // Assuming even split for now, or just recording involvement
@@ -321,23 +334,73 @@ class TripRepository {
     });
   }
 
-  /// Finishes the trip by updating the phase to 'finished'.
-  Future<void> finishTrip(String tripId, List<Settlement> settlements) async {
+  /// Finishes the trip by calculating settlements and updating the phase to 'finished' and locking it.
+  Future<void> finishTrip(String tripId) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Must be logged in.');
 
-    // Start a transaction if possible, or just sequential waits.
-    // Supabase REST doesn't support transactions easily without RPC.
-    // We will do it sequentially.
+    // 1. Fetch Expenses & Participants to Calculate Balances
+    final expensesData = await _client
+        .from('expenses')
+        .select('id, amount, paid_by')
+        .eq('trip_id', tripId);
 
-    // 1. Insert Settlements
+    if (expensesData.isEmpty) {
+      // Just lock it if no expenses
+      await _client
+          .from('trips')
+          .update({'phase': 'finished', 'is_locked': true})
+          .match({'id': tripId});
+      return;
+    }
+
+    final expenseIds = expensesData.map((e) => e['id'] as String).toList();
+    final participantsData = await _client
+        .from('expense_participants')
+        .select('expense_id, user_id')
+        .inFilter('expense_id', expenseIds);
+
+    // Group participants by expense
+    final participantsMap = <String, List<String>>{};
+    for (final p in participantsData) {
+      final eId = p['expense_id'] as String;
+      final uId = p['user_id'] as String;
+      if (!participantsMap.containsKey(eId)) {
+        participantsMap[eId] = [];
+      }
+      participantsMap[eId]!.add(uId);
+    }
+
+    // Calculate Balances
+    final balances = <String, double>{};
+    for (final expense in expensesData) {
+      final eId = expense['id'] as String;
+      final payerId = expense['paid_by'] as String;
+      final amount = (expense['amount'] as num).toDouble();
+
+      // Credit payer
+      balances[payerId] = (balances[payerId] ?? 0.0) + amount;
+
+      // Debit participants
+      final participants = participantsMap[eId] ?? [];
+      if (participants.isNotEmpty) {
+        final splitAmount = amount / participants.length;
+        for (final pId in participants) {
+          balances[pId] = (balances[pId] ?? 0.0) - splitAmount;
+        }
+      }
+    }
+
+    // 2. Calculate Settlements
+    final settlements = calculateSettlements(balances, tripId);
+
+    // 3. Insert Settlements
     if (settlements.isNotEmpty) {
       final settlementsJson = settlements.map((s) => s.toJson()).toList();
-      // Remove 'id' if null so DB generates it, though toJson handles it.
       await _client.from('settlements').insert(settlementsJson);
     }
 
-    // 2. Update Trip Phase
+    // 4. Update Trip Phase & Lock
     final result = await _client
         .from('trips')
         .update({'phase': 'finished', 'is_locked': true})
