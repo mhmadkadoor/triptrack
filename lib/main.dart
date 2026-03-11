@@ -9,8 +9,12 @@ import 'core/supabase/supabase_config.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: ".env");
-  await SupabaseConfig.initialize();
+  try {
+    await dotenv.load(fileName: ".env");
+    await SupabaseConfig.initialize();
+  } catch (e) {
+    debugPrint('INIT ERROR: $e');
+  }
 
   runApp(const ProviderScope(child: TripTrackApp()));
 }

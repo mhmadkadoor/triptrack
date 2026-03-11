@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthRepository {
@@ -72,7 +72,11 @@ class AuthRepository {
   }
 
   /// Uploads a profile image to Supabase Storage and returns the public URL.
-  Future<String> uploadProfileImage(File imageFile, String userId) async {
+  Future<String> uploadProfileImage(
+    Uint8List imageBytes,
+    String userId, {
+    String fileExtension = 'jpg',
+  }) async {
     // 1. Clean up old images to free space and ensure unique URLs (cache busting)
     try {
       final objects = await _client.storage.from('avatars').list(path: userId);
@@ -90,13 +94,20 @@ class AuthRepository {
 
     // 2. Generate timestamped filename to force UI refresh (busts the cache)
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final path = '$userId/profile_$timestamp.jpg';
+    final path = '$userId/profile_$timestamp.$fileExtension';
 
     // 3. Upload the file
     // We maintain the folder structure avatars/{userId}/... for RLS
     await _client.storage
         .from('avatars')
-        .upload(path, imageFile, fileOptions: const FileOptions(upsert: true));
+        .uploadBinary(
+          path,
+          imageBytes,
+          fileOptions: const FileOptions(
+            upsert: true,
+            contentType: 'image/jpeg',
+          ),
+        );
 
     // 4. Get the public URL
     final imageUrl = _client.storage.from('avatars').getPublicUrl(path);

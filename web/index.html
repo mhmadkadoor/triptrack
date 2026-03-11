@@ -20,6 +20,10 @@
   <title>TripTrack</title>
   <link rel="manifest" href="manifest.json">
   
+  <!-- Image Cropper Web Scripts (Cropper.js) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+  
   <style>
     * {
       box-sizing: border-box;
@@ -115,21 +119,13 @@
         loadingElement.classList.add('loaded');
         // Completely remove after transition
         setTimeout(() => {
-          loadingElement.classList.add('hidden');
+          if (loadingElement) loadingElement.classList.add('hidden');
         }, 300);
       }
     }
     
-    // Configure Flutter for optimal performance
-    window.flutterConfiguration = {
-      renderer: "html",  // HTML renderer for better INP
-    };
-    
     // Multiple event listeners to ensure loading screen is hidden
     window.addEventListener('flutter-first-frame', hideLoading);
-    
-    // Fallback: Hide after a reasonable time
-    setTimeout(hideLoading, 2000);
     
     // Also check for DOM mutations (Flutter app mounting)
     const observer = new MutationObserver((mutations) => {

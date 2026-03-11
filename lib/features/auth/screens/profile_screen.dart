@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -92,6 +91,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             aspectRatioLockEnabled: true,
             resetAspectRatioEnabled: false,
           ),
+          WebUiSettings(context: context),
         ],
       );
 
@@ -102,9 +102,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final user = ref.read(currentUserProvider);
       if (user == null) return;
 
+      final bytes = await croppedFile.readAsBytes();
+
       final newUrl = await ref
           .read(authRepositoryProvider)
-          .uploadProfileImage(File(croppedFile.path), user.id);
+          .uploadProfileImage(bytes, user.id);
 
       if (mounted) {
         setState(() {
