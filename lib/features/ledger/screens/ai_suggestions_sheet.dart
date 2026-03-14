@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/ai_service.dart';
+import '../../trips/providers/trip_provider.dart';
 
 class AiSuggestionsSheet extends ConsumerStatefulWidget {
+  final String tripId;
   final List<String> currentExpenses;
 
-  const AiSuggestionsSheet({super.key, required this.currentExpenses});
+  const AiSuggestionsSheet({
+    super.key,
+    required this.tripId,
+    required this.currentExpenses,
+  });
 
   @override
   ConsumerState<AiSuggestionsSheet> createState() => _AiSuggestionsSheetState();
@@ -13,6 +19,7 @@ class AiSuggestionsSheet extends ConsumerStatefulWidget {
 
 class _AiSuggestionsSheetState extends ConsumerState<AiSuggestionsSheet> {
   late Future<List<String>> _suggestionsFuture;
+  final Set<String> _addedItems = {};
 
   @override
   void initState() {
@@ -20,6 +27,28 @@ class _AiSuggestionsSheetState extends ConsumerState<AiSuggestionsSheet> {
     _suggestionsFuture = ref
         .read(aiServiceProvider)
         .getSuggestions(widget.currentExpenses);
+  }
+
+  Future<void> _addItem(String item) async {
+    try {
+      if (_addedItems.contains(item)) return;
+
+      await ref
+          .read(tripRepositoryProvider)
+          .addShoppingItem(widget.tripId, item);
+      setState(() => _addedItems.add(item));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Added to list!')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
   @override
@@ -112,6 +141,20 @@ class _AiSuggestionsSheetState extends ConsumerState<AiSuggestionsSheet> {
                           fontWeight: FontWeight.w600,
                           color: Colors.purple.shade900,
                         ),
+                      ),
+                      trailing: IconButton(
+                        icon: _addedItems.contains(suggestions[index])
+                            ? const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              )
+                            : const Icon(
+                                Icons.add_circle,
+                                color: Colors.purple,
+                              ),
+                        onPressed: _addedItems.contains(suggestions[index])
+                            ? null
+                            : () => _addItem(suggestions[index]),
                       ),
                     ),
                   );

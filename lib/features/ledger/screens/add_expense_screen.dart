@@ -9,8 +9,15 @@ import '../../roster/models/trip_member.dart'; // Ensure profile is known via me
 
 class AddExpenseScreen extends ConsumerStatefulWidget {
   final String tripId;
+  final String? initialTitle;
+  final String? shoppingItemId;
 
-  const AddExpenseScreen({super.key, required this.tripId});
+  const AddExpenseScreen({
+    super.key,
+    required this.tripId,
+    this.initialTitle,
+    this.shoppingItemId,
+  });
 
   @override
   ConsumerState<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -36,6 +43,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     _membersStream = ref
         .read(tripRepositoryProvider)
         .watchTripMembers(widget.tripId);
+    if (widget.initialTitle != null) {
+      _descriptionController.text = widget.initialTitle!;
+    }
   }
 
   @override
@@ -205,6 +215,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             description: _descriptionController.text.trim(),
             amount: amount,
             participantUserIds: _selectedParticipants.toList(),
+            linkedShoppingItemId: widget.shoppingItemId,
           );
       ref.invalidate(expensesProvider(widget.tripId));
 

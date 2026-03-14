@@ -7,13 +7,62 @@ import '../models/trip.dart';
 import '../../roster/models/trip_member.dart';
 import '../../ledger/models/expense.dart';
 import '../../ledger/models/settlement.dart';
-import '../../ledger/providers/balances_provider.dart';
+import '../../ledger/models/shopping_item.dart';
+import '../../ledger/utils/settlement_utils.dart';
 
 class TripRepository {
   final SupabaseClient _client;
+
   final _uuid = const Uuid();
 
   TripRepository(this._client);
+
+  // --- Shopping List ---
+
+  Stream<List<ShoppingItem>> watchShoppingItems(String tripId) {
+    return _client
+        .from('shopping_items')
+        .stream(primaryKey: ['id'])
+        .eq('trip_id', tripId)
+        .order('created_at', ascending: true)
+        .map(
+          (data) => data.map((json) => ShoppingItem.fromJson(json)).toList(),
+        );
+  }
+
+  Future<void> addShoppingItem(String tripId, String itemName) async {
+    await _client.from('shopping_items').insert({
+      'trip_id': tripId,
+      'item_name': itemName,
+      'added_by': _client.auth.currentUser!.id,
+    });
+  }
+
+  Future<void> deleteShoppingItem(String itemId) async {
+    await _client.from('shopping_items').delete().eq('id', itemId);
+  }
+
+  Future<void> toggleClaimItem(
+    String itemId,
+    String? currentUserId,
+    String? currentlyClaimedBy,
+  ) async {
+    if (currentUserId == null) return;
+
+    if (currentlyClaimedBy == currentUserId) {
+      // Unclaim
+      await _client
+          .from('shopping_items')
+          .update({'claimed_by': null})
+          .eq('id', itemId);
+    } else if (currentlyClaimedBy == null) {
+      // Claim
+      await _client
+          .from('shopping_items')
+          .update({'claimed_by': currentUserId})
+          .eq('id', itemId);
+    }
+  }
 
   /// Streams expenses for a trip, joined with the profile of the payer.
   Stream<List<Expense>> watchExpenses(String tripId) {
@@ -82,6 +131,7 @@ class TripRepository {
     required String description,
     required double amount,
     required List<String> participantUserIds,
+    String? linkedShoppingItemId,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Must be logged in.');
@@ -144,6 +194,14 @@ class TripRepository {
         .toList();
 
     await _client.from('expense_participants').insert(participantsData);
+
+    // 4. Delete linked shopping item if provided
+    if (linkedShoppingItemId != null) {
+      await _client
+          .from('shopping_items')
+          .delete()
+          .eq('id', linkedShoppingItemId);
+    }
   }
 
   /// Only leaders can update member role.

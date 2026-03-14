@@ -5,7 +5,6 @@ import '../../providers/trip_provider.dart';
 import '../../models/trip.dart'; // import TripPhase
 import '../../../roster/models/trip_member.dart';
 import '../../../auth/providers/auth_provider.dart'; // Add auth provider
-import '../../../ledger/providers/balances_provider.dart';
 
 import '../../../trips/providers/trip_repository.dart';
 
@@ -293,13 +292,6 @@ class MembersTab extends ConsumerWidget {
                   ),
                 );
               }
-
-              // Determine if current user is a leader
-              final myMemberRecord = members.firstWhere(
-                (m) => m.userId == currentUser?.id,
-                orElse: () =>
-                    members.first, // Fallback (shouldn't happen if trusted)
-              );
 
               // Only check role if we actually found ourselves in the list
               final amILeader = members.any(

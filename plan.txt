@@ -17,13 +17,15 @@ Universal Accounts: A single authenticated user account can participate in an un
 
 The Global Dashboard (Minimalist List): The home screen displays a clean, text-based list of all Active and Past trips. (Note: Premium photo cards can be added later as a paid upgrade).
 
-Inside a Trip (Bottom Navigation): When a user enters a trip, navigation is handled via a standard Bottom Navigation Bar with three tabs:
+Inside a Trip (Bottom Navigation): When a user enters a trip, navigation is handled via a standard Bottom Navigation Bar with four tabs:
 
 Tab 1: Expenses (The ledger of all purchases)
 
 Tab 2: Balances (The settlement math and leaderboard)
 
-Tab 3: Members (The roster and role management)
+Tab 3: Shopping List (Shared list of items needed for the trip)
+
+Tab 4: Members (The roster and role management)
 
 🔗 3. Trip Creation & The Invite Flow
 Trip Initialization: When creating a trip, the Leader must set a Trip Name, Dates, and select a Base Currency (e.g., USD, EUR, TRY). Note: The currency is permanently locked for the duration of the trip to prevent mathematical corruption.

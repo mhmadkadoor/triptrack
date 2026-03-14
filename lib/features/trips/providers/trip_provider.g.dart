@@ -50,6 +50,83 @@ final class TripRepositoryProvider
 
 String _$tripRepositoryHash() => r'6017fb2922b5b91687e8de329d706a17c8b8b23f';
 
+@ProviderFor(shoppingItems)
+final shoppingItemsProvider = ShoppingItemsFamily._();
+
+final class ShoppingItemsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<ShoppingItem>>,
+          List<ShoppingItem>,
+          Stream<List<ShoppingItem>>
+        >
+    with
+        $FutureModifier<List<ShoppingItem>>,
+        $StreamProvider<List<ShoppingItem>> {
+  ShoppingItemsProvider._({
+    required ShoppingItemsFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'shoppingItemsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$shoppingItemsHash();
+
+  @override
+  String toString() {
+    return r'shoppingItemsProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<List<ShoppingItem>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<ShoppingItem>> create(Ref ref) {
+    final argument = this.argument as String;
+    return shoppingItems(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ShoppingItemsProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$shoppingItemsHash() => r'0413268eba8134c77263e31d417fb965bfc2cee4';
+
+final class ShoppingItemsFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<List<ShoppingItem>>, String> {
+  ShoppingItemsFamily._()
+    : super(
+        retry: null,
+        name: r'shoppingItemsProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  ShoppingItemsProvider call(String tripId) =>
+      ShoppingItemsProvider._(argument: tripId, from: this);
+
+  @override
+  String toString() => r'shoppingItemsProvider';
+}
+
 @ProviderFor(userTrips)
 final userTripsProvider = UserTripsProvider._();
 

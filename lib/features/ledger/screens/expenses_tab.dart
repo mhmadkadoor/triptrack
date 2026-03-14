@@ -1,6 +1,8 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/widgets/user_avatar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -23,7 +25,17 @@ class ExpensesTab extends ConsumerWidget {
     final expensesAsync = ref.watch(expensesProvider(tripId));
     final tripAsync = ref.watch(tripProvider(tripId));
     final membersAsync = ref.watch(tripMembersProvider(tripId));
-    final currentUser = ref.watch(currentUserProvider);
+
+    // Get current user securely as requested
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+
+    // Safely calculate isLeader using collection's firstWhereOrNull
+    // If members are loading, this will be null, resulting in isLeader=false (hidden), which is safe.
+    final currentMember = membersAsync.asData?.value.firstWhereOrNull(
+      (m) => m.userId == currentUserId,
+    );
+
+    final isLeader = currentMember?.role == TripRole.leader;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -32,22 +44,26 @@ class ExpensesTab extends ConsumerWidget {
         elevation: 0,
         backgroundColor: Colors.transparent,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.auto_awesome),
-            tooltip: 'AI Suggestions',
-            onPressed: expensesAsync.hasValue
-                ? () {
-                    final currentExpenses = expensesAsync.value!
-                        .map((e) => e.description)
-                        .toList();
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (context) =>
-                          AiSuggestionsSheet(currentExpenses: currentExpenses),
-                    );
-                  }
-                : null,
-          ),
+          // Only show for leaders. If data is loading, it safely defaults to false (hidden) until data arrives.
+          if (isLeader)
+            IconButton(
+              icon: const Icon(Icons.auto_awesome),
+              tooltip: 'AI Suggestions',
+              onPressed: expensesAsync.hasValue
+                  ? () {
+                      final currentExpenses = expensesAsync.value!
+                          .map((e) => e.description)
+                          .toList();
+                      showModalBottomSheet(
+                        context: context,
+                        builder: (context) => AiSuggestionsSheet(
+                          tripId: tripId,
+                          currentExpenses: currentExpenses,
+                        ),
+                      );
+                    }
+                  : null,
+            ),
         ],
       ),
       body: expensesAsync.when(
@@ -56,7 +72,7 @@ class ExpensesTab extends ConsumerWidget {
           expenses,
           tripAsync.asData?.value,
           membersAsync.asData?.value ?? [],
-          currentUser?.id,
+          currentUserId,
           ref,
         ),
         loading: () => const Center(child: CircularProgressIndicator()),

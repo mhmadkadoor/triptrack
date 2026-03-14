@@ -1,17 +1,25 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'trip_repository.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/trip.dart';
 import '../../roster/models/trip_member.dart';
 import '../../ledger/models/expense.dart';
-import 'trip_repository.dart';
+import '../../ledger/models/shopping_item.dart';
+import '../../ledger/models/settlement.dart';
+import '../../ledger/providers/balances_provider.dart';
 
 part 'trip_provider.g.dart';
 
 @riverpod
 TripRepository tripRepository(Ref ref) {
   return TripRepository(Supabase.instance.client);
+}
+
+@riverpod
+Stream<List<ShoppingItem>> shoppingItems(Ref ref, String tripId) {
+  return ref.watch(tripRepositoryProvider).watchShoppingItems(tripId);
 }
 
 @riverpod

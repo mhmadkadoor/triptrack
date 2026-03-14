@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../ledger/screens/expenses_tab.dart';
 import '../../ledger/screens/balances_tab.dart'; // import new tab
+import '../../ledger/screens/shopping_list_tab.dart'; // import new tab
 import '../../trips/screens/tabs/members_tab.dart';
 
 class TripDetailScreen extends StatefulWidget {
@@ -16,10 +17,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // We will conditionally render the 3 tabs based on the current index
+    // We will conditionally render the tabs based on the current index
     final List<Widget> tabs = [
       ExpensesTab(tripId: widget.tripId),
-      BalancesTab(tripId: widget.tripId), // The new Balances tab
+      BalancesTab(tripId: widget.tripId),
+      ShoppingListTab(tripId: widget.tripId), // Shopping List
       MembersTab(tripId: widget.tripId),
     ];
 
@@ -42,6 +44,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet),
             label: 'Balances',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.checklist_outlined),
+            selectedIcon: Icon(Icons.checklist),
+            label: 'Shopping',
           ),
           NavigationDestination(
             icon: Icon(Icons.people_outline),
