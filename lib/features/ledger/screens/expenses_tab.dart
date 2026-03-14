@@ -11,6 +11,7 @@ import '../../roster/models/trip_member.dart';
 import '../models/expense.dart';
 import '../providers/balances_provider.dart';
 import 'add_expense_screen.dart';
+import 'ai_suggestions_sheet.dart';
 
 class ExpensesTab extends ConsumerWidget {
   final String tripId;
@@ -26,6 +27,29 @@ class ExpensesTab extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: const Text('Expenses'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'AI Suggestions',
+            onPressed: expensesAsync.hasValue
+                ? () {
+                    final currentExpenses = expensesAsync.value!
+                        .map((e) => e.description)
+                        .toList();
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (context) =>
+                          AiSuggestionsSheet(currentExpenses: currentExpenses),
+                    );
+                  }
+                : null,
+          ),
+        ],
+      ),
       body: expensesAsync.when(
         data: (expenses) => _buildExpensesList(
           context,
