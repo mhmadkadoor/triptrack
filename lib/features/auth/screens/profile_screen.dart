@@ -21,6 +21,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _avatarUrlController;
   late TextEditingController _paymentInfoController;
+  late TextEditingController _ibanController;
   bool _isLoading = false;
 
   @override
@@ -41,6 +42,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       text: user?.userMetadata?['avatar_url'] ?? '',
     );
     _paymentInfoController = TextEditingController(text: '');
+    _ibanController = TextEditingController(text: '');
 
     // Fetch latest profile data to populate fields
     if (user != null) {
@@ -56,6 +58,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _nameController.text = data['full_name'] ?? '';
           _avatarUrlController.text = data['avatar_url'] ?? '';
           _paymentInfoController.text = data['payment_info'] ?? '';
+          _ibanController.text = data['iban'] ?? '';
         });
       }
     } catch (e) {
@@ -160,6 +163,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _nameController.dispose();
     _avatarUrlController.dispose();
     _paymentInfoController.dispose();
+    _ibanController.dispose();
     super.dispose();
   }
 
@@ -178,6 +182,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             name: _nameController.text.trim(),
             avatarUrl: _avatarUrlController.text.trim(),
             paymentInfo: _paymentInfoController.text.trim(),
+            iban: _ibanController.text.trim(),
           );
 
       if (mounted) {
@@ -413,10 +418,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
+                controller: _ibanController,
+                decoration: const InputDecoration(
+                  labelText: 'IBAN',
+                  hintText: 'DE12 3456...',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.account_balance),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
                 controller: _paymentInfoController,
                 decoration: const InputDecoration(
-                  labelText: 'Payment Info (IBAN / PayPal Link)',
-                  hintText: 'IBAN: DE12 3456...',
+                  labelText: 'Payment Info (PayPal / Venmo / Cash App)',
+                  hintText: 'PayPal: me@example.com',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.payment),
                   helperText:

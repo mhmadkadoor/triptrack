@@ -42,11 +42,13 @@ class AuthRepository {
     String? name,
     String? avatarUrl,
     String? paymentInfo,
+    String? iban,
   }) async {
     final updates = <String, dynamic>{};
     if (name != null) updates['full_name'] = name;
     if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
     if (paymentInfo != null) updates['payment_info'] = paymentInfo;
+    if (iban != null) updates['iban'] = iban;
 
     if (updates.isEmpty) return;
 

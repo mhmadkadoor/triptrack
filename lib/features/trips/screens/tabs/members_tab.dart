@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/widgets/responsive_layout.dart';
+import '../../../roster/screens/member_detail_screen.dart';
 import '../../providers/trip_provider.dart';
 import '../../models/trip.dart'; // import TripPhase
 import '../../../roster/models/trip_member.dart';
@@ -310,6 +312,17 @@ class MembersTab extends ConsumerWidget {
                   final isLeader = member.role == TripRole.leader;
 
                   return ListTile(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MemberDetailScreen(
+                            tripId: tripId,
+                            member: member,
+                          ),
+                        ),
+                      );
+                    },
                     leading: CircleAvatar(
                       backgroundImage:
                           profile?.avatarUrl != null &&
