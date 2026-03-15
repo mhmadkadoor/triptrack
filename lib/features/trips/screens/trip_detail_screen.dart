@@ -3,6 +3,8 @@ import '../../ledger/screens/expenses_tab.dart';
 import '../../ledger/screens/balances_tab.dart'; // import new tab
 import '../../ledger/screens/shopping_list_tab.dart'; // import new tab
 import '../../trips/screens/tabs/members_tab.dart';
+import '../../../core/widgets/responsive_layout.dart';
+import 'desktop_trip_detail_screen.dart';
 
 class TripDetailScreen extends StatefulWidget {
   final String tripId;
@@ -25,37 +27,46 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       MembersTab(tripId: widget.tripId),
     ];
 
-    return Scaffold(
-      body: SafeArea(child: tabs[_currentIndex]),
-      bottomNavigationBar: NavigationBar(
+    void onDestinationSelected(int index) {
+      setState(() {
+        _currentIndex = index;
+      });
+    }
+
+    return ResponsiveLayout(
+      mobileBody: Scaffold(
+        body: SafeArea(child: tabs[_currentIndex]),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: onDestinationSelected,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: 'Expenses',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.account_balance_wallet_outlined),
+              selectedIcon: Icon(Icons.account_balance_wallet),
+              label: 'Balances',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.checklist_outlined),
+              selectedIcon: Icon(Icons.checklist),
+              label: 'Shopping',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.people_outline),
+              selectedIcon: Icon(Icons.people),
+              label: 'Members',
+            ),
+          ],
+        ),
+      ),
+      desktopBody: DesktopTripDetailScreen(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Expenses',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet),
-            label: 'Balances',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.checklist_outlined),
-            selectedIcon: Icon(Icons.checklist),
-            label: 'Shopping',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outline),
-            selectedIcon: Icon(Icons.people),
-            label: 'Members',
-          ),
-        ],
+        onDestinationSelected: onDestinationSelected,
+        body: tabs[_currentIndex],
       ),
     );
   }

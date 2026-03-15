@@ -66,6 +66,7 @@ class _ShoppingListTabState extends ConsumerState<ShoppingListTab> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('Shopping List'),
         backgroundColor: Colors.transparent,
         elevation: 0,

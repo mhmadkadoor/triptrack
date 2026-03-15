@@ -40,6 +40,7 @@ class ExpensesTab extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('Expenses'),
         elevation: 0,
         backgroundColor: Colors.transparent,
