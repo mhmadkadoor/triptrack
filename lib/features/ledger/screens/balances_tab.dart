@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/widgets/user_avatar.dart';
 import '../../trips/models/trip.dart'; // import TripPhase
@@ -8,6 +9,7 @@ import '../../trips/providers/trip_repository.dart';
 import '../providers/balances_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../roster/models/trip_member.dart'; // import TripRole
+import '../utils/share_utils.dart';
 
 import '../../ledger/models/settlement.dart';
 
@@ -23,6 +25,7 @@ class BalancesTab extends ConsumerWidget {
     // We need balances map
     final balances = ref.watch(netBalancesProvider(tripId));
     final tripAsync = ref.watch(tripProvider(tripId));
+    final settlementsAsync = ref.watch(savedSettlementsProvider(tripId));
 
     final currentUser = ref.watch(currentUserProvider);
 
@@ -166,240 +169,230 @@ class BalancesTab extends ConsumerWidget {
                           const SizedBox(height: 24),
                           const Divider(),
                           const SizedBox(height: 16),
-                          const Text(
-                            'How to Settle Up',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'How to Settle Up',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.share),
+                                onPressed: () {
+                                  settlementsAsync.whenData((settlements) {
+                                    if (settlements.isNotEmpty) {
+                                      final summary =
+                                          ShareUtils.generateSettlementSummary(
+                                            trip,
+                                            settlements,
+                                            members,
+                                          );
+                                      Share.share(summary);
+                                    }
+                                  });
+                                },
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
-                          Consumer(
-                            builder: (context, ref, _) {
-                              final settlementsAsync = ref.watch(
-                                savedSettlementsProvider(tripId),
-                              );
+                          settlementsAsync.when(
+                            data: (settlements) {
+                              if (settlements.isEmpty) {
+                                return const Text('All settled up!');
+                              }
 
-                              return settlementsAsync.when(
-                                data: (settlements) {
-                                  if (settlements.isEmpty) {
-                                    return const Text('All settled up!');
+                              return Column(
+                                children: settlements.map((settlement) {
+                                  final fromMember =
+                                      memberMap[settlement.fromUserId];
+                                  final toMember =
+                                      memberMap[settlement.toUserId];
+
+                                  final fromName =
+                                      fromMember?.profile?.displayName ??
+                                      'User';
+                                  final toName =
+                                      toMember?.profile?.displayName ?? 'User';
+
+                                  // Get payment info from the creditor (toMember)
+                                  final paymentInfo =
+                                      toMember?.profile?.paymentInfo;
+
+                                  final amount = settlement.amount;
+                                  final status = settlement.status;
+
+                                  final isPayer =
+                                      settlement.fromUserId == currentUser?.id;
+                                  final isPayee =
+                                      settlement.toUserId == currentUser?.id;
+
+                                  Widget? actionButton;
+                                  String statusText = '';
+                                  Color statusColor = Colors.grey;
+
+                                  if (status == SettlementStatus.pending) {
+                                    statusText = 'Pending';
+                                    if (isPayer) {
+                                      actionButton = TextButton(
+                                        onPressed: () async {
+                                          await ref
+                                              .read(tripRepositoryProvider)
+                                              .markSettlementSent(
+                                                settlement.id!,
+                                              );
+                                          // Force refresh for instant UI feedback
+                                          await Future.delayed(
+                                            const Duration(milliseconds: 500),
+                                          );
+                                          ref.invalidate(
+                                            savedSettlementsProvider(tripId),
+                                          );
+                                        },
+                                        child: const Text('Mark as Paid'),
+                                      );
+                                    }
+                                  } else if (status == SettlementStatus.sent) {
+                                    statusText = 'Payment Sent';
+                                    statusColor = Colors.blue;
+                                    if (isPayee) {
+                                      actionButton = TextButton(
+                                        onPressed: () async {
+                                          await ref
+                                              .read(tripRepositoryProvider)
+                                              .confirmSettlementReceived(
+                                                settlement.id!,
+                                              );
+                                          // Force refresh for instant UI feedback
+                                          await Future.delayed(
+                                            const Duration(milliseconds: 500),
+                                          );
+                                          ref.invalidate(
+                                            savedSettlementsProvider(tripId),
+                                          );
+                                        },
+                                        child: const Text('Confirm Receipt'),
+                                      );
+                                    }
+                                  } else if (status ==
+                                      SettlementStatus.confirmed) {
+                                    statusText = 'Settled';
+                                    statusColor = Colors.green;
                                   }
 
-                                  return Column(
-                                    children: settlements.map((settlement) {
-                                      final fromMember =
-                                          memberMap[settlement.fromUserId];
-                                      final toMember =
-                                          memberMap[settlement.toUserId];
-
-                                      final fromName =
-                                          fromMember?.profile?.displayName ??
-                                          'User';
-                                      final toName =
-                                          toMember?.profile?.displayName ??
-                                          'User';
-
-                                      // Get payment info from the creditor (toMember)
-                                      final paymentInfo =
-                                          toMember?.profile?.paymentInfo;
-
-                                      final amount = settlement.amount;
-                                      final status = settlement.status;
-
-                                      final isPayer =
-                                          settlement.fromUserId ==
-                                          currentUser?.id;
-                                      final isPayee =
-                                          settlement.toUserId ==
-                                          currentUser?.id;
-
-                                      Widget? actionButton;
-                                      String statusText = '';
-                                      Color statusColor = Colors.grey;
-
-                                      if (status == SettlementStatus.pending) {
-                                        statusText = 'Pending';
-                                        if (isPayer) {
-                                          actionButton = TextButton(
-                                            onPressed: () async {
-                                              await ref
-                                                  .read(tripRepositoryProvider)
-                                                  .markSettlementSent(
-                                                    settlement.id!,
-                                                  );
-                                              // Force refresh for instant UI feedback
-                                              await Future.delayed(
-                                                const Duration(
-                                                  milliseconds: 500,
-                                                ),
-                                              );
-                                              ref.invalidate(
-                                                savedSettlementsProvider(
-                                                  tripId,
-                                                ),
-                                              );
-                                            },
-                                            child: const Text('Mark as Paid'),
-                                          );
-                                        }
-                                      } else if (status ==
-                                          SettlementStatus.sent) {
-                                        statusText = 'Payment Sent';
-                                        statusColor = Colors.blue;
-                                        if (isPayee) {
-                                          actionButton = TextButton(
-                                            onPressed: () async {
-                                              await ref
-                                                  .read(tripRepositoryProvider)
-                                                  .confirmSettlementReceived(
-                                                    settlement.id!,
-                                                  );
-                                              // Force refresh for instant UI feedback
-                                              await Future.delayed(
-                                                const Duration(
-                                                  milliseconds: 500,
-                                                ),
-                                              );
-                                              ref.invalidate(
-                                                savedSettlementsProvider(
-                                                  tripId,
-                                                ),
-                                              );
-                                            },
-                                            child: const Text(
-                                              'Confirm Receipt',
-                                            ),
-                                          );
-                                        }
-                                      } else if (status ==
-                                          SettlementStatus.confirmed) {
-                                        statusText = 'Settled';
-                                        statusColor = Colors.green;
-                                      }
-
-                                      return Card(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 8.0,
-                                        ),
-                                        child: ListTile(
-                                          leading: const Icon(
-                                            Icons.monetization_on,
-                                            color: Colors.green,
-                                          ),
-                                          title: RichText(
-                                            text: TextSpan(
-                                              style: DefaultTextStyle.of(
-                                                context,
-                                              ).style,
-                                              children: [
-                                                TextSpan(
-                                                  text: fromName,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                const TextSpan(text: ' owes '),
-                                                TextSpan(
-                                                  text: toName,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          subtitle: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  if (status ==
-                                                      SettlementStatus
-                                                          .confirmed)
-                                                    const Icon(
-                                                      Icons.check_circle,
-                                                      size: 16,
-                                                      color: Colors.green,
-                                                    ),
-                                                  if (status ==
-                                                      SettlementStatus
-                                                          .confirmed)
-                                                    const SizedBox(width: 4),
-                                                  Text(
-                                                    statusText,
-                                                    style: TextStyle(
-                                                      color: statusColor,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
+                                  return Card(
+                                    margin: const EdgeInsets.only(bottom: 8.0),
+                                    child: ListTile(
+                                      leading: const Icon(
+                                        Icons.monetization_on,
+                                        color: Colors.green,
+                                      ),
+                                      title: RichText(
+                                        text: TextSpan(
+                                          style: DefaultTextStyle.of(
+                                            context,
+                                          ).style,
+                                          children: [
+                                            TextSpan(
+                                              text: fromName,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
                                               ),
-                                              // Show payment info if I am the payer (debtor) and payment info exists
-                                              if (isPayer &&
-                                                  paymentInfo != null &&
-                                                  paymentInfo.isNotEmpty &&
-                                                  status ==
-                                                      SettlementStatus.pending)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 4.0,
-                                                      ),
-                                                  child: SelectableText(
-                                                    'Send to: $paymentInfo',
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      fontStyle:
-                                                          FontStyle.italic,
-                                                      color: Colors.blueGrey,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                          trailing: Row(
-                                            mainAxisSize: MainAxisSize.min,
+                                            ),
+                                            const TextSpan(text: ' owes '),
+                                            TextSpan(
+                                              text: toName,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      subtitle: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
                                             children: [
+                                              if (status ==
+                                                  SettlementStatus.confirmed)
+                                                const Icon(
+                                                  Icons.check_circle,
+                                                  size: 16,
+                                                  color: Colors.green,
+                                                ),
+                                              if (status ==
+                                                  SettlementStatus.confirmed)
+                                                const SizedBox(width: 4),
                                               Text(
-                                                '\$${amount.toStringAsFixed(2)}',
-                                                style: const TextStyle(
+                                                statusText,
+                                                style: TextStyle(
+                                                  color: statusColor,
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 16,
+                                                  fontSize: 12,
                                                 ),
                                               ),
-                                              if (actionButton != null) ...[
-                                                const SizedBox(width: 8),
-                                                actionButton,
-                                              ],
                                             ],
                                           ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  );
-                                },
-                                loading: () => const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                                error: (e, st) => Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    'Error loading settlements: $e',
-                                    style: TextStyle(
-                                      color: Colors.red.shade900,
+                                          // Show payment info if I am the payer (debtor) and payment info exists
+                                          if (isPayer &&
+                                              paymentInfo != null &&
+                                              paymentInfo.isNotEmpty &&
+                                              status ==
+                                                  SettlementStatus.pending)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 4.0,
+                                              ),
+                                              child: SelectableText(
+                                                'Send to: $paymentInfo',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontStyle: FontStyle.italic,
+                                                  color: Colors.blueGrey,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '\$${amount.toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          if (actionButton != null) ...[
+                                            const SizedBox(width: 8),
+                                            actionButton,
+                                          ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ),
+                                  );
+                                }).toList(),
                               );
                             },
+                            loading: () => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            error: (e, st) => Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Error loading settlements: $e',
+                                style: TextStyle(color: Colors.red.shade900),
+                              ),
+                            ),
                           ),
                         ],
 
