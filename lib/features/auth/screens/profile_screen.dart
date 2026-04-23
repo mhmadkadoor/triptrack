@@ -180,7 +180,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           .updateUserProfile(
             user.id,
             name: _nameController.text.trim(),
-            avatarUrl: _avatarUrlController.text.trim(),
             paymentInfo: _paymentInfoController.text.trim(),
             iban: _ibanController.text.trim(),
           );
@@ -405,16 +404,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 validator: (val) =>
                     val == null || val.isEmpty ? 'Name is required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _avatarUrlController,
-                decoration: const InputDecoration(
-                  labelText: 'Avatar URL',
-                  hintText: 'https://example.com/me.jpg',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.image),
-                ),
               ),
               const SizedBox(height: 16),
               TextFormField(

@@ -74,28 +74,34 @@ class MemberDetailScreen extends ConsumerWidget {
                           ),
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.account_balance, size: 20),
                             const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'IBAN',
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: Theme.of(context).hintColor,
-                                      ),
-                                ),
-                                Text(
-                                  iban,
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'IBAN',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: Theme.of(context).hintColor,
+                                        ),
                                   ),
-                                ),
-                              ],
+                                  Text(
+                                    iban,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(width: 12),
                             IconButton(
