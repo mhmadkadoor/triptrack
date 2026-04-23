@@ -18,7 +18,12 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TripTrack'),
+        centerTitle: false,
+        title: Image.asset(
+          'assets/images/triptrackLogoFull.png',
+          height: 32,
+          fit: BoxFit.contain,
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.person),

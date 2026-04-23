@@ -96,19 +96,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(
-                  Icons.account_balance_wallet,
-                  size: 80,
-                  color: Colors.deepPurple,
-                ),
-                const SizedBox(height: 32),
-                Text(
-                  'TripTrack',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                Image.asset(
+                  'assets/images/triptrackLogoFull.png',
+                  height: 120,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(
+                      Icons.account_balance_wallet,
+                      size: 80,
+                      color: Colors.deepPurple,
+                    );
+                  },
                 ),
                 const SizedBox(height: 48),
                 if (_isSignUp) ...[
