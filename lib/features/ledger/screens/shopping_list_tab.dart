@@ -8,6 +8,7 @@ import '../../trips/providers/trip_repository.dart';
 import '../../roster/models/trip_member.dart';
 import '../../ledger/models/shopping_item.dart';
 import '../../ledger/screens/add_expense_screen.dart';
+import 'ai_suggestions_sheet.dart';
 
 class ShoppingListTab extends ConsumerStatefulWidget {
   final String tripId;
@@ -56,6 +57,7 @@ class _ShoppingListTabState extends ConsumerState<ShoppingListTab> {
     // 2. Watch data
     final shoppingItemsAsync = ref.watch(shoppingItemsProvider(widget.tripId));
     final membersAsync = ref.watch(tripMembersProvider(widget.tripId));
+    final expensesAsync = ref.watch(expensesProvider(widget.tripId));
 
     // 3. Determine if Leader
     final currentMember = membersAsync.asData?.value.firstWhereOrNull(
@@ -70,6 +72,31 @@ class _ShoppingListTabState extends ConsumerState<ShoppingListTab> {
         title: const Text('Shopping List'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          if (isLeader)
+            IconButton(
+              icon: const Icon(Icons.auto_awesome),
+              tooltip: 'AI Suggestions',
+              onPressed: shoppingItemsAsync.hasValue && expensesAsync.hasValue
+                  ? () {
+                      final currentItems = shoppingItemsAsync.value!
+                          .map((e) => e.itemName)
+                          .toList();
+                      final currentExpenses = expensesAsync.value!
+                          .map((e) => e.description)
+                          .toList();
+                      showModalBottomSheet(
+                        context: context,
+                        builder: (context) => AiSuggestionsSheet(
+                          tripId: widget.tripId,
+                          currentExpenses: currentExpenses,
+                          currentShoppingItems: currentItems,
+                        ),
+                      );
+                    }
+                  : null,
+            ),
+        ],
       ),
       body: Column(
         children: [

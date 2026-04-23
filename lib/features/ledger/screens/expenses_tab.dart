@@ -44,28 +44,6 @@ class ExpensesTab extends ConsumerWidget {
         title: const Text('Expenses'),
         elevation: 0,
         backgroundColor: Colors.transparent,
-        actions: [
-          // Only show for leaders. If data is loading, it safely defaults to false (hidden) until data arrives.
-          if (isLeader)
-            IconButton(
-              icon: const Icon(Icons.auto_awesome),
-              tooltip: 'AI Suggestions',
-              onPressed: expensesAsync.hasValue
-                  ? () {
-                      final currentExpenses = expensesAsync.value!
-                          .map((e) => e.description)
-                          .toList();
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) => AiSuggestionsSheet(
-                          tripId: tripId,
-                          currentExpenses: currentExpenses,
-                        ),
-                      );
-                    }
-                  : null,
-            ),
-        ],
       ),
       body: expensesAsync.when(
         data: (expenses) => _buildExpensesList(

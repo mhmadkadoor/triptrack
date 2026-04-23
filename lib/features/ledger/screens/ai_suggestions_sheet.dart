@@ -6,11 +6,13 @@ import '../../trips/providers/trip_provider.dart';
 class AiSuggestionsSheet extends ConsumerStatefulWidget {
   final String tripId;
   final List<String> currentExpenses;
+  final List<String> currentShoppingItems;
 
   const AiSuggestionsSheet({
     super.key,
     required this.tripId,
     required this.currentExpenses,
+    required this.currentShoppingItems,
   });
 
   @override
@@ -26,7 +28,7 @@ class _AiSuggestionsSheetState extends ConsumerState<AiSuggestionsSheet> {
     super.initState();
     _suggestionsFuture = ref
         .read(aiServiceProvider)
-        .getSuggestions(widget.currentExpenses);
+        .getSuggestions(widget.currentExpenses, widget.currentShoppingItems);
   }
 
   Future<void> _addItem(String item) async {

@@ -21,8 +21,11 @@ class AiService {
     _model = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: apiKey);
   }
 
-  Future<List<String>> getSuggestions(List<String> currentExpenses) async {
-    if (currentExpenses.isEmpty) {
+  Future<List<String>> getSuggestions(
+    List<String> currentExpenses,
+    List<String> currentShoppingItems,
+  ) async {
+    if (currentExpenses.isEmpty && currentShoppingItems.isEmpty) {
       return [
         'Snacks',
         'Drinks',
@@ -32,13 +35,7 @@ class AiService {
 
     final prompt =
         '''
-Act as a travel planner. Here is a list of current expenses for a group trip:
-${currentExpenses.join(', ')}
-
-Based on this list, suggest exactly 3 to 5 complementary items the group might have forgotten to buy.
-Return the response ONLY as a raw JSON array of strings. 
-Example format: ["Item 1", "Item 2", "Item 3"]
-Do not include any markdown formatting like ```json or ```.
+You are a travel planner. The group has already bought: $currentExpenses. They are currently planning to buy: $currentShoppingItems. Suggest 3 to 5 complementary items they are missing. Do not suggest anything already on these lists. Return EXACTLY a raw JSON array of strings (e.g., ["Item 1", "Item 2"]).
 ''';
 
     try {
