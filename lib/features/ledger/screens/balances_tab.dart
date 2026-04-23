@@ -253,6 +253,85 @@ class BalancesTab extends ConsumerWidget {
                                         },
                                         child: const Text('Mark as Paid'),
                                       );
+                                    } else if (currentUser?.id != null &&
+                                        (currentUser!.id == trip.createdBy ||
+                                            isPayee)) {
+                                      actionButton = IconButton(
+                                        icon: const Icon(
+                                          Icons.check_circle_outline,
+                                        ),
+                                        onPressed: () async {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (ctx) => AlertDialog(
+                                              title: const Text(
+                                                'Confirm Payment',
+                                              ),
+                                              content: Text(
+                                                'Did $fromName pay $toName $amount?',
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(
+                                                    ctx,
+                                                  ).pop(false),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(
+                                                    ctx,
+                                                  ).pop(true),
+                                                  child: const Text('Confirm'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+
+                                          if (confirm == true) {
+                                            try {
+                                              await ref
+                                                  .read(tripRepositoryProvider)
+                                                  .settleDebt(
+                                                    tripId: tripId,
+                                                    fromUserId:
+                                                        settlement.fromUserId,
+                                                    toUserId:
+                                                        settlement.toUserId,
+                                                    amount: settlement.amount,
+                                                  );
+
+                                              // We also need to mark this specific settlement as confirmed so it doesn't show up as pending anymore.
+                                              // If the user clicks this action button immediately, it bypasses the "Mark as Paid" step.
+                                              await ref
+                                                  .read(tripRepositoryProvider)
+                                                  .confirmSettlementReceived(
+                                                    settlement.id!,
+                                                  );
+
+                                              ref.invalidate(
+                                                netBalancesProvider(tripId),
+                                              );
+                                              ref.invalidate(
+                                                savedSettlementsProvider(
+                                                  tripId,
+                                                ),
+                                              );
+                                            } catch (e) {
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      'Failed to confirm payment: $e',
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                            }
+                                          }
+                                        },
+                                      );
                                     }
                                   } else if (status == SettlementStatus.sent) {
                                     statusText = 'Payment Sent';

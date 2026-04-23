@@ -204,6 +204,57 @@ class TripRepository {
     }
   }
 
+  /// Records a settlement payment between two users.
+  Future<void> settleDebt({
+    required String tripId,
+    required String fromUserId,
+    required String toUserId,
+    required double amount,
+  }) async {
+    // 1. Fetch trip currency
+    final trip = await _client
+        .from('trips')
+        .select('base_currency')
+        .eq('id', tripId)
+        .single();
+    final currency = trip['base_currency'] as String? ?? 'USD';
+
+    // Generate expense ID locally
+    final expenseId = _uuid.v4();
+    final createdAt = DateTime.now().toUtc().toIso8601String();
+
+    try {
+      // Insert expense representing the payment
+      await _client.from('expenses').insert({
+        'id': expenseId,
+        'trip_id': tripId,
+        'description': 'Payment',
+        'amount': amount,
+        'currency': currency,
+        'paid_by': fromUserId,
+        'created_at': createdAt,
+        'is_settlement': true,
+      });
+
+      // Insert participant (only the receiver)
+      await _client.from('expense_participants').insert({
+        'expense_id': expenseId,
+        'user_id': toUserId,
+        'amount_owed': amount,
+        'is_paid': false,
+      });
+    } on PostgrestException catch (e) {
+      if (e.code == '42501' ||
+          e.message.contains('row-level security') ||
+          e.message.contains('policy')) {
+        throw Exception(
+          'Cannot add payment. The Leader has locked this trip for settlement.',
+        );
+      }
+      rethrow;
+    }
+  }
+
   /// Only leaders can update member role.
   Future<void> updateMemberRole({
     required String tripId,
