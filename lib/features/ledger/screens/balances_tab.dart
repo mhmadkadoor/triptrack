@@ -10,6 +10,7 @@ import '../providers/balances_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../roster/models/trip_member.dart'; // import TripRole
 import '../utils/share_utils.dart';
+import '../../../../core/utils/currency_utils.dart';
 
 import '../../ledger/models/settlement.dart';
 
@@ -126,15 +127,20 @@ class BalancesTab extends ConsumerWidget {
                           Color balanceColor;
                           String balanceText;
 
+                          final currencySymbol = getCurrencySymbol(
+                            trip.baseCurrency,
+                          );
                           if (balance > 0.005) {
                             balanceColor = Colors.green.shade700;
-                            balanceText = '+${balance.toStringAsFixed(2)}';
+                            balanceText =
+                                '+$currencySymbol${balance.toStringAsFixed(2)}';
                           } else if (balance < -0.005) {
                             balanceColor = Colors.red.shade700;
-                            balanceText = balance.toStringAsFixed(2);
+                            balanceText =
+                                '-$currencySymbol${balance.abs().toStringAsFixed(2)}';
                           } else {
                             balanceColor = Colors.grey;
-                            balanceText = '0.00';
+                            balanceText = '${currencySymbol}0.00';
                           }
 
                           return ListTile(
@@ -364,9 +370,15 @@ class BalancesTab extends ConsumerWidget {
                                   return Card(
                                     margin: const EdgeInsets.only(bottom: 8.0),
                                     child: ListTile(
-                                      leading: const Icon(
-                                        Icons.monetization_on,
-                                        color: Colors.green,
+                                      leading: CircleAvatar(
+                                        backgroundColor: Colors.green.shade100,
+                                        child: Text(
+                                          getCurrencySymbol(trip.baseCurrency),
+                                          style: const TextStyle(
+                                            color: Colors.green,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
                                       title: RichText(
                                         text: TextSpan(
@@ -441,7 +453,7 @@ class BalancesTab extends ConsumerWidget {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Text(
-                                            '\$${amount.toStringAsFixed(2)}',
+                                            '${getCurrencySymbol(trip.baseCurrency)}${amount.toStringAsFixed(2)}',
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 16,
