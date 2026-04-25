@@ -20,7 +20,7 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         centerTitle: false,
         title: Image.asset(
-          'assets/images/triptrackLogoFull.png',
+          'assets/images/triptrackLogoTrans.png',
           height: 32,
           fit: BoxFit.contain,
         ),
