@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../../core/config/env_config.dart';
@@ -46,6 +47,15 @@ class AuthRepository {
   }
 
   Future<AuthResponse?> signInWithGoogle() async {
+    if (kIsWeb) {
+      final success = await _client.auth.signInWithOAuth(OAuthProvider.google);
+      if (!success) {
+        throw Exception('Google Sign-In failed to redirect.');
+      }
+      // On web, this triggers a redirect, halting immediate execution.
+      return null;
+    }
+
     // Read the secret credentials from our EnvConfig!
     const webClientId = EnvConfig.googleWebClientId;
 
@@ -64,17 +74,16 @@ class AuthRepository {
     }
 
     final googleAuth = await googleUser.authentication;
-    final accessToken = googleAuth.accessToken;
     final idToken = googleAuth.idToken;
 
-    if (accessToken == null || idToken == null) {
-      throw Exception('Google Sign-In failed: Missing tokens');
+    if (idToken == null) {
+      throw Exception('Google login failed: Missing ID Token.');
     }
 
     return await _client.auth.signInWithIdToken(
       provider: OAuthProvider.google,
       idToken: idToken,
-      accessToken: accessToken,
+      accessToken: googleAuth.accessToken ?? '',
     );
   }
 
