@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // Import this
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../../../core/config/env_config.dart';
 
 part 'ai_service.g.dart';
 
@@ -16,7 +16,7 @@ class AiService {
   late final GenerativeModel _model;
 
   AiService() {
-    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    const apiKey = EnvConfig.geminiApiKey;
     // Used gemini-3-flash-preview per user request
     _model = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: apiKey);
   }

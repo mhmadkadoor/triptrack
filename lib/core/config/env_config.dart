@@ -11,4 +11,8 @@ class EnvConfig {
     'GOOGLE_WEB_CLIENT_ID',
     defaultValue: '',
   );
+  static const String geminiApiKey = String.fromEnvironment(
+    'GEMINI_API_KEY',
+    defaultValue: '',
+  );
 }
