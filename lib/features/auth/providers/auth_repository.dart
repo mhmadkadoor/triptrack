@@ -48,7 +48,11 @@ class AuthRepository {
 
   Future<AuthResponse?> signInWithGoogle() async {
     if (kIsWeb) {
-      final success = await _client.auth.signInWithOAuth(OAuthProvider.google);
+      final currentUrl = Uri.base.origin;
+      final success = await _client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: currentUrl,
+      );
       if (!success) {
         throw Exception('Google Sign-In failed to redirect.');
       }
