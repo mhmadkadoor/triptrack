@@ -45,7 +45,7 @@ class AuthRepository {
     );
   }
 
-  Future<AuthResponse> signInWithGoogle() async {
+  Future<AuthResponse?> signInWithGoogle() async {
     // Read the secret credentials from our EnvConfig!
     const webClientId = EnvConfig.googleWebClientId;
 
@@ -60,18 +60,15 @@ class AuthRepository {
 
     final googleUser = await googleSignIn.signIn();
     if (googleUser == null) {
-      throw const AuthException('Google sign-in was canceled.');
+      return null;
     }
 
     final googleAuth = await googleUser.authentication;
     final accessToken = googleAuth.accessToken;
     final idToken = googleAuth.idToken;
 
-    if (accessToken == null) {
-      throw const AuthException('No Access Token found.');
-    }
-    if (idToken == null) {
-      throw const AuthException('No ID Token found.');
+    if (accessToken == null || idToken == null) {
+      throw Exception('Google Sign-In failed: Missing tokens');
     }
 
     return await _client.auth.signInWithIdToken(

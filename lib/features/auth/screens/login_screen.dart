@@ -88,7 +88,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _isLoading = true);
     final authRepo = ref.read(authRepositoryProvider);
     try {
-      await authRepo.signInWithGoogle();
+      final response = await authRepo.signInWithGoogle();
+      if (response == null) {
+        // The user canceled the sign-in flow
+        return;
+      }
       if (mounted) {
         context.go('/dashboard');
       }
