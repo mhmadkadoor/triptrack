@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../../core/config/env_config.dart';
 
 class AuthRepository {
   final SupabaseClient _client;
@@ -46,13 +46,16 @@ class AuthRepository {
   }
 
   Future<AuthResponse> signInWithGoogle() async {
-    // Read the secret credentials from our .env file!
-    final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
-    final iosClientId = dotenv.env['GOOGLE_IOS_CLIENT_ID'] ?? '';
+    // Read the secret credentials from our EnvConfig!
+    const webClientId = EnvConfig.googleWebClientId;
+
+    // In a real project you'd also include an injected IOS client ID if needed.
+    // For now we just use null so compilation doesn't fail.
+    const String? iosClientId = null;
 
     final GoogleSignIn googleSignIn = GoogleSignIn(
       serverClientId: webClientId,
-      clientId: iosClientId.isEmpty ? null : iosClientId,
+      clientId: iosClientId,
     );
 
     final googleUser = await googleSignIn.signIn();
