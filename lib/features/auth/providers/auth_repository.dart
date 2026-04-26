@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthRepository {
   final SupabaseClient _client;
@@ -29,6 +31,50 @@ class AuthRepository {
       email: email,
       password: password,
       data: {'full_name': fullName},
+    );
+  }
+
+  Future<void> verifyEmailOtp({
+    required String email,
+    required String otp,
+  }) async {
+    await _client.auth.verifyOTP(
+      type: OtpType.signup,
+      email: email,
+      token: otp,
+    );
+  }
+
+  Future<AuthResponse> signInWithGoogle() async {
+    // Read the secret credentials from our .env file!
+    final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'] ?? '';
+    final iosClientId = dotenv.env['GOOGLE_IOS_CLIENT_ID'] ?? '';
+
+    final GoogleSignIn googleSignIn = GoogleSignIn(
+      serverClientId: webClientId,
+      clientId: iosClientId.isEmpty ? null : iosClientId,
+    );
+
+    final googleUser = await googleSignIn.signIn();
+    if (googleUser == null) {
+      throw const AuthException('Google sign-in was canceled.');
+    }
+
+    final googleAuth = await googleUser.authentication;
+    final accessToken = googleAuth.accessToken;
+    final idToken = googleAuth.idToken;
+
+    if (accessToken == null) {
+      throw const AuthException('No Access Token found.');
+    }
+    if (idToken == null) {
+      throw const AuthException('No ID Token found.');
+    }
+
+    return await _client.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+      accessToken: accessToken,
     );
   }
 
