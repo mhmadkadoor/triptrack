@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
@@ -8,6 +9,7 @@ import 'core/supabase/supabase_config.dart';
 
 void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
 
   // Preserve the native splash screen while the app initializes
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
