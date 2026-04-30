@@ -226,6 +226,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     padding: const EdgeInsets.all(16),
                   ),
                 ),
+                const SizedBox(height: 32),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8.0,
+                  children: [
+                    TextButton(
+                      onPressed: () => context.push('/privacy'),
+                      child: const Text(
+                        'Privacy Policy',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const Text(
+                      '•',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                        height: 3,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => context.push('/terms'),
+                      child: const Text(
+                        'Terms of Service',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
