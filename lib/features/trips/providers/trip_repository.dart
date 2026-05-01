@@ -17,6 +17,15 @@ class TripRepository {
 
   TripRepository(this._client);
 
+  // --- Leave Trip ---
+  Future<void> leaveTrip(String tripId, String userId) async {
+    await _client
+        .from('trip_members')
+        .update({'has_left': true})
+        .eq('trip_id', tripId)
+        .eq('user_id', userId);
+  }
+
   // --- Shopping List ---
 
   Stream<List<ShoppingItem>> watchShoppingItems(String tripId) {
@@ -373,6 +382,7 @@ class TripRepository {
           if (membersData.isEmpty) return <Trip>[];
 
           final tripIds = membersData
+              .where((m) => m['has_left'] != true) // Exclude left trips
               .map((m) => m['trip_id'] as String)
               .toList();
 

@@ -16,113 +16,93 @@ class DashboardScreen extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
     final tripsAsync = ref.watch(userTripsProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: false,
-        title: Image.asset(
-          'assets/images/triptrackLogoTrans.png',
-          height: 32,
-          fit: BoxFit.contain,
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
-            },
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          centerTitle: false,
+          title: Image.asset(
+            'assets/images/triptrackLogoTrans.png',
+            height: 32,
+            fit: BoxFit.contain,
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ref.read(authRepositoryProvider).signOut();
-            },
-          ),
-        ],
-      ),
-      body: tripsAsync.when(
-        data: (trips) {
-          if (trips.isEmpty) {
-            return _buildEmptyState(
-              context,
-              user?.userMetadata?['full_name'] ?? 'Tracker',
-            );
-          }
-
-          final activeTrips = trips
-              .where((t) => t.phase == TripPhase.active)
-              .toList();
-          final pastTrips = trips
-              .where((t) => t.phase != TripPhase.active)
-              .toList();
-
-          return RefreshIndicator(
-            onRefresh: () => ref.refresh(userTripsProvider.future),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              children: [
-                if (activeTrips.isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: Text(
-                      'ACTIVE TRIPS',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                  ...activeTrips.map((trip) => _TripListTile(trip: trip)),
-                ],
-                if (pastTrips.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: Text(
-                      'PAST TRIPS',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                  ...pastTrips.map((trip) => _TripListTile(trip: trip)),
-                ],
-              ],
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.person),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+              },
             ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) =>
-            Center(child: Text('Error loading trips: $error')),
-      ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          FloatingActionButton.extended(
-            heroTag: 'join',
-            onPressed: () => _showJoinTripDialog(context, ref),
-            label: const Text('Join'),
-            icon: const Icon(Icons.group_add),
-            backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
-            foregroundColor: Theme.of(context).colorScheme.onTertiaryContainer,
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: () async {
+                await ref.read(authRepositoryProvider).signOut();
+              },
+            ),
+          ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Active'),
+              Tab(text: 'Finished'),
+              Tab(text: 'Settled'),
+            ],
           ),
-          const SizedBox(height: 16),
-          FloatingActionButton(
-            heroTag: 'create',
-            onPressed: () => context.push('/trips/create'),
-            child: const Icon(Icons.add),
-          ),
-        ],
+        ),
+        body: tripsAsync.when(
+          data: (trips) {
+            if (trips.isEmpty) {
+              return _buildEmptyState(
+                context,
+                user?.userMetadata?['full_name'] ?? 'Tracker',
+              );
+            }
+
+            final activeTrips = trips
+                .where((t) => t.phase == TripPhase.active)
+                .toList();
+            final finishedTrips = trips
+                .where((t) => t.phase == TripPhase.finished)
+                .toList();
+            final settledTrips = trips
+                .where((t) => t.phase == TripPhase.settled)
+                .toList();
+
+            return TabBarView(
+              children: [
+                _buildTripList(activeTrips, ref),
+                _buildTripList(finishedTrips, ref),
+                _buildTripList(settledTrips, ref),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) =>
+              Center(child: Text('Error loading trips: $error')),
+        ),
+        floatingActionButton: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            FloatingActionButton.extended(
+              heroTag: 'join',
+              onPressed: () => _showJoinTripDialog(context, ref),
+              label: const Text('Join'),
+              icon: const Icon(Icons.group_add),
+              backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+              foregroundColor: Theme.of(
+                context,
+              ).colorScheme.onTertiaryContainer,
+            ),
+            const SizedBox(height: 16),
+            FloatingActionButton(
+              heroTag: 'create',
+              onPressed: () => context.push('/trips/create'),
+              child: const Icon(Icons.add),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -212,6 +192,23 @@ class DashboardScreen extends ConsumerWidget {
             child: const Text('Join'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTripList(List<Trip> trips, WidgetRef ref) {
+    if (trips.isEmpty) {
+      return const Center(child: Text('No trips found.'));
+    }
+    return RefreshIndicator(
+      onRefresh: () => ref.refresh(userTripsProvider.future),
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        itemCount: trips.length,
+        itemBuilder: (context, index) {
+          return _TripListTile(trip: trips[index]);
+        },
       ),
     );
   }

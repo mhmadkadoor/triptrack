@@ -35,6 +35,7 @@ class TripMember extends Equatable {
   final ExitStatus exitStatus;
   final DateTime joinedAt;
   final Profile? profile; // Add profile field
+  final bool hasLeft; // The new boolean flag
 
   const TripMember({
     required this.tripId,
@@ -43,6 +44,7 @@ class TripMember extends Equatable {
     required this.exitStatus,
     required this.joinedAt,
     this.profile, // Add profile to constructor
+    this.hasLeft = false,
   });
 
   factory TripMember.empty() {
@@ -52,6 +54,7 @@ class TripMember extends Equatable {
       role: TripRole.hiker,
       exitStatus: ExitStatus.none,
       joinedAt: DateTime.fromMillisecondsSinceEpoch(0),
+      hasLeft: false,
     );
   }
 
@@ -65,6 +68,7 @@ class TripMember extends Equatable {
       profile: json['profiles'] != null
           ? Profile.fromJson(json['profiles'])
           : null, // Parse profile
+      hasLeft: json['has_left'] as bool? ?? false,
     );
   }
 
@@ -76,5 +80,6 @@ class TripMember extends Equatable {
     exitStatus,
     joinedAt,
     profile,
+    hasLeft,
   ];
 }

@@ -42,6 +42,14 @@ Future<void> joinTrip(Ref ref, String inviteCode) async {
 }
 
 @riverpod
+Future<void> leaveTrip(Ref ref, String tripId) async {
+  final userId = ref.read(authRepositoryProvider).currentUser?.id;
+  if (userId != null) {
+    await ref.read(tripRepositoryProvider).leaveTrip(tripId, userId);
+  }
+}
+
+@riverpod
 Future<void> createExpense(
   Ref ref, {
   required String tripId,

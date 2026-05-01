@@ -234,6 +234,75 @@ final class JoinTripFamily extends $Family
   String toString() => r'joinTripProvider';
 }
 
+@ProviderFor(leaveTrip)
+final leaveTripProvider = LeaveTripFamily._();
+
+final class LeaveTripProvider
+    extends $FunctionalProvider<AsyncValue<void>, void, FutureOr<void>>
+    with $FutureModifier<void>, $FutureProvider<void> {
+  LeaveTripProvider._({
+    required LeaveTripFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'leaveTripProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$leaveTripHash();
+
+  @override
+  String toString() {
+    return r'leaveTripProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<void> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<void> create(Ref ref) {
+    final argument = this.argument as String;
+    return leaveTrip(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is LeaveTripProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$leaveTripHash() => r'c5f7911e6fe05c7383ec268bf06f510ec2beb381';
+
+final class LeaveTripFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<void>, String> {
+  LeaveTripFamily._()
+    : super(
+        retry: null,
+        name: r'leaveTripProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  LeaveTripProvider call(String tripId) =>
+      LeaveTripProvider._(argument: tripId, from: this);
+
+  @override
+  String toString() => r'leaveTripProvider';
+}
+
 @ProviderFor(createExpense)
 final createExpenseProvider = CreateExpenseFamily._();
 
