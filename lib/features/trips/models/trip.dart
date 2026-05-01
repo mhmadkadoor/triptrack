@@ -26,6 +26,7 @@ class Trip extends Equatable {
   final String createdBy;
   final DateTime createdAt;
   final bool allowSelfExclusion;
+  final bool isExpenseEditingLocked;
 
   const Trip({
     required this.id,
@@ -38,6 +39,7 @@ class Trip extends Equatable {
     required this.createdBy,
     required this.createdAt,
     this.allowSelfExclusion = true,
+    this.isExpenseEditingLocked = false,
   });
 
   factory Trip.fromJson(Map<String, dynamic> json) {
@@ -54,6 +56,8 @@ class Trip extends Equatable {
       createdBy: json['created_by'] as String,
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
       allowSelfExclusion: json['allow_self_exclusion'] as bool? ?? true,
+      isExpenseEditingLocked:
+          json['is_expense_editing_locked'] as bool? ?? false,
     );
   }
 
@@ -68,5 +72,7 @@ class Trip extends Equatable {
     defaultJoinRole,
     createdBy,
     createdAt,
+    allowSelfExclusion,
+    isExpenseEditingLocked,
   ];
 }

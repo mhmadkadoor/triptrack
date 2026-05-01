@@ -34,6 +34,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         defaultJoinRole: _selectedRole,
       );
 
+      // Invalidate the user's trip list so the dashboard updates immediately
+      ref.invalidate(userTripsProvider);
+
       if (mounted) {
         context.pop(); // Go back to dashboard on success
       }

@@ -22,10 +22,15 @@ class MemberDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final expensesAsync = ref.watch(expensesProvider(tripId));
+    final tripAsync = ref.watch(tripProvider(tripId));
 
     final iban = member.profile?.iban;
     final hasIban = iban != null && iban.isNotEmpty;
-    final currencyFormat = NumberFormat.simpleCurrency();
+    final currencyFormat = tripAsync.asData != null
+        ? NumberFormat.simpleCurrency(
+            name: tripAsync.asData!.value.baseCurrency,
+          )
+        : NumberFormat.simpleCurrency();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Member Details')),

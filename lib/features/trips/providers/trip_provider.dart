@@ -46,6 +46,7 @@ Future<void> leaveTrip(Ref ref, String tripId) async {
   final userId = ref.read(authRepositoryProvider).currentUser?.id;
   if (userId != null) {
     await ref.read(tripRepositoryProvider).leaveTrip(tripId, userId);
+    ref.invalidate(userTripsProvider);
   }
 }
 
@@ -65,13 +66,40 @@ Future<void> createExpense(
         amount: amount,
         participantUserIds: participantUserIds,
       );
-  // Force refresh expenses list
-  // Note: expenses are usually streamed per-trip, so we'd need to invalidate THAT provider.
-  // But expenses are usually watched via `watchExpenses(tripId)`.
-  // Since `watchExpenses` is usually a `StreamProvider.family` or direct stream,
-  // we can't easily invalidate it without the exact arguments.
-  // However, `watchExpenses` uses `.stream()` on `expenses` table,
-  // so it SHOULD receive the insert event automatically.
+  ref.invalidate(expensesProvider(tripId));
+  ref.invalidate(netBalancesProvider(tripId));
+}
+
+@riverpod
+Future<void> updateExpenseAction(
+  Ref ref,
+  String tripId,
+  Expense expense,
+) async {
+  await ref.read(tripRepositoryProvider).updateExpense(expense);
+  ref.invalidate(expensesProvider(tripId));
+  ref.invalidate(netBalancesProvider(tripId));
+}
+
+@riverpod
+Future<void> deleteExpenseAction(
+  Ref ref,
+  String tripId,
+  String expenseId,
+) async {
+  await ref.read(tripRepositoryProvider).deleteExpense(expenseId);
+  ref.invalidate(expensesProvider(tripId));
+  ref.invalidate(netBalancesProvider(tripId));
+}
+
+@riverpod
+Future<void> toggleExpenseLockAction(
+  Ref ref,
+  String tripId,
+  bool isLocked,
+) async {
+  await ref.read(tripRepositoryProvider).toggleExpenseLock(tripId, isLocked);
+  ref.invalidate(tripProvider(tripId));
 }
 
 @riverpod

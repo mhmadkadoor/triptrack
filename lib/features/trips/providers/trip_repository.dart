@@ -73,6 +73,33 @@ class TripRepository {
     }
   }
 
+  // --- Expense Management ---
+
+  Future<void> updateExpense(Expense expense) async {
+    await _client
+        .from('expenses')
+        .update({'description': expense.description, 'amount': expense.amount})
+        .eq('id', expense.id);
+
+    // Note: If you need to update participants or splits based on amount changes,
+    // that logic would go here (e.g. deleting old participants and reinserting new splits).
+    // For simplicity, we just update the core expense info.
+  }
+
+  Future<void> deleteExpense(String expenseId) async {
+    // Rely on ON DELETE CASCADE for expense_participants if setup in DB.
+    // Otherwise we must delete from expense_participants first.
+    await _client.from('expenses').delete().eq('id', expenseId);
+  }
+
+  // --- Leader Actions ---
+  Future<void> toggleExpenseLock(String tripId, bool isLocked) async {
+    await _client
+        .from('trips')
+        .update({'is_expense_editing_locked': isLocked})
+        .eq('id', tripId);
+  }
+
   /// Streams expenses for a trip, joined with the profile of the payer.
   Stream<List<Expense>> watchExpenses(String tripId) {
     return _client

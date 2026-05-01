@@ -44,6 +44,29 @@ class ExpensesTab extends ConsumerWidget {
         title: const Text('Expenses'),
         elevation: 0,
         backgroundColor: Colors.transparent,
+        actions: [
+          if (isLeader)
+            tripAsync.when(
+              data: (trip) => IconButton(
+                icon: Icon(
+                  trip.isExpenseEditingLocked ? Icons.lock : Icons.lock_open,
+                ),
+                tooltip: trip.isExpenseEditingLocked
+                    ? 'Unlock Expenses'
+                    : 'Lock Expenses',
+                onPressed: () async {
+                  await ref.read(
+                    toggleExpenseLockActionProvider(
+                      tripId,
+                      !trip.isExpenseEditingLocked,
+                    ).future,
+                  );
+                },
+              ),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+        ],
       ),
       body: expensesAsync.when(
         data: (expenses) => _buildExpensesList(
@@ -327,6 +350,17 @@ class _ExpenseTile extends StatelessWidget {
     final amountText =
         '${expense.currency} ${expense.amount.toStringAsFixed(2)}';
 
+    // Determine leader id, ownership and permissions exactly as required
+    final leaderId = members
+        .firstWhereOrNull((m) => m.role == TripRole.leader)
+        ?.userId;
+    final bool isLeader =
+        currentUserId != null && leaderId != null && currentUserId == leaderId;
+    final bool isOwner =
+        currentUserId != null && currentUserId == expense.paidBy;
+    final bool canEdit =
+        isLeader || (isOwner && (trip?.isExpenseEditingLocked != true));
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 0, // Flat look
@@ -346,25 +380,170 @@ class _ExpenseTile extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           subtitle: Text('Paid by $payerName'),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                amountText,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    amountText,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  Text(
+                    DateFormat('MMM d').format(expense.createdAt),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              if (canEdit && trip?.phase == TripPhase.active)
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (value) async {
+                    if (value == 'edit') {
+                      await _showEditExpenseDialog(context);
+                    } else if (value == 'delete') {
+                      await _showDeleteExpenseDialog(context);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 18),
+                          SizedBox(width: 8),
+                          Text('Edit Name/Price'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, size: 18, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Delete', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              Text(
-                DateFormat('MMM d').format(expense.createdAt),
-                style: theme.textTheme.bodySmall,
-              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _showEditExpenseDialog(BuildContext context) async {
+    final titleController = TextEditingController(text: expense.description);
+    final amountController = TextEditingController(
+      text: expense.amount.toString(),
+    );
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Edit Expense'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Description'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: amountController,
+              decoration: const InputDecoration(labelText: 'Amount'),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && trip != null) {
+      final newDesc = titleController.text.trim();
+      final newAmount = double.tryParse(amountController.text.trim());
+      if (newDesc.isNotEmpty && newAmount != null && newAmount > 0) {
+        final updatedExpense = Expense(
+          id: expense.id,
+          tripId: expense.tripId,
+          description: newDesc,
+          amount: newAmount,
+          currency: expense.currency,
+          paidBy: expense.paidBy,
+          createdAt: expense.createdAt,
+
+          participantUserIds: expense.participantUserIds,
+          paidByProfile: expense.paidByProfile,
+        );
+        try {
+          await ref.read(
+            updateExpenseActionProvider(trip!.id, updatedExpense).future,
+          );
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error updating expense: $e')),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  Future<void> _showDeleteExpenseDialog(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Delete Expense?'),
+        content: const Text(
+          'Are you sure you want to delete this expense? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && trip != null) {
+      try {
+        await ref.read(
+          deleteExpenseActionProvider(trip!.id, expense.id).future,
+        );
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error deleting expense: $e')));
+        }
+      }
+    }
   }
 }

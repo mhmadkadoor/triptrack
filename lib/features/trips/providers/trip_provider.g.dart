@@ -283,7 +283,7 @@ final class LeaveTripProvider
   }
 }
 
-String _$leaveTripHash() => r'c5f7911e6fe05c7383ec268bf06f510ec2beb381';
+String _$leaveTripHash() => r'1f14c5734361e84cca2860af7d0c25bcbd8dc744';
 
 final class LeaveTripFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<void>, String> {
@@ -371,7 +371,7 @@ final class CreateExpenseProvider
   }
 }
 
-String _$createExpenseHash() => r'bfc39c3373470045438c8858a12b5687b05ee9ef';
+String _$createExpenseHash() => r'0bad5038b40dca8cdb5eea73ad8885247b3bb6e4';
 
 final class CreateExpenseFamily extends $Family
     with
@@ -410,6 +410,220 @@ final class CreateExpenseFamily extends $Family
 
   @override
   String toString() => r'createExpenseProvider';
+}
+
+@ProviderFor(updateExpenseAction)
+final updateExpenseActionProvider = UpdateExpenseActionFamily._();
+
+final class UpdateExpenseActionProvider
+    extends $FunctionalProvider<AsyncValue<void>, void, FutureOr<void>>
+    with $FutureModifier<void>, $FutureProvider<void> {
+  UpdateExpenseActionProvider._({
+    required UpdateExpenseActionFamily super.from,
+    required (String, Expense) super.argument,
+  }) : super(
+         retry: null,
+         name: r'updateExpenseActionProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$updateExpenseActionHash();
+
+  @override
+  String toString() {
+    return r'updateExpenseActionProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<void> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<void> create(Ref ref) {
+    final argument = this.argument as (String, Expense);
+    return updateExpenseAction(ref, argument.$1, argument.$2);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is UpdateExpenseActionProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$updateExpenseActionHash() =>
+    r'0a671e7b418fe6e71e6822da8efb5d5535728e17';
+
+final class UpdateExpenseActionFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<void>, (String, Expense)> {
+  UpdateExpenseActionFamily._()
+    : super(
+        retry: null,
+        name: r'updateExpenseActionProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  UpdateExpenseActionProvider call(String tripId, Expense expense) =>
+      UpdateExpenseActionProvider._(argument: (tripId, expense), from: this);
+
+  @override
+  String toString() => r'updateExpenseActionProvider';
+}
+
+@ProviderFor(deleteExpenseAction)
+final deleteExpenseActionProvider = DeleteExpenseActionFamily._();
+
+final class DeleteExpenseActionProvider
+    extends $FunctionalProvider<AsyncValue<void>, void, FutureOr<void>>
+    with $FutureModifier<void>, $FutureProvider<void> {
+  DeleteExpenseActionProvider._({
+    required DeleteExpenseActionFamily super.from,
+    required (String, String) super.argument,
+  }) : super(
+         retry: null,
+         name: r'deleteExpenseActionProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$deleteExpenseActionHash();
+
+  @override
+  String toString() {
+    return r'deleteExpenseActionProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<void> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<void> create(Ref ref) {
+    final argument = this.argument as (String, String);
+    return deleteExpenseAction(ref, argument.$1, argument.$2);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is DeleteExpenseActionProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$deleteExpenseActionHash() =>
+    r'd854e62080a86c256beea86d5bc2faa184d3eef6';
+
+final class DeleteExpenseActionFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<void>, (String, String)> {
+  DeleteExpenseActionFamily._()
+    : super(
+        retry: null,
+        name: r'deleteExpenseActionProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  DeleteExpenseActionProvider call(String tripId, String expenseId) =>
+      DeleteExpenseActionProvider._(argument: (tripId, expenseId), from: this);
+
+  @override
+  String toString() => r'deleteExpenseActionProvider';
+}
+
+@ProviderFor(toggleExpenseLockAction)
+final toggleExpenseLockActionProvider = ToggleExpenseLockActionFamily._();
+
+final class ToggleExpenseLockActionProvider
+    extends $FunctionalProvider<AsyncValue<void>, void, FutureOr<void>>
+    with $FutureModifier<void>, $FutureProvider<void> {
+  ToggleExpenseLockActionProvider._({
+    required ToggleExpenseLockActionFamily super.from,
+    required (String, bool) super.argument,
+  }) : super(
+         retry: null,
+         name: r'toggleExpenseLockActionProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$toggleExpenseLockActionHash();
+
+  @override
+  String toString() {
+    return r'toggleExpenseLockActionProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<void> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<void> create(Ref ref) {
+    final argument = this.argument as (String, bool);
+    return toggleExpenseLockAction(ref, argument.$1, argument.$2);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ToggleExpenseLockActionProvider &&
+        other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$toggleExpenseLockActionHash() =>
+    r'97d1032f726c752f381bf4032c64c88053d5a6cd';
+
+final class ToggleExpenseLockActionFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<void>, (String, bool)> {
+  ToggleExpenseLockActionFamily._()
+    : super(
+        retry: null,
+        name: r'toggleExpenseLockActionProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  ToggleExpenseLockActionProvider call(String tripId, bool isLocked) =>
+      ToggleExpenseLockActionProvider._(
+        argument: (tripId, isLocked),
+        from: this,
+      );
+
+  @override
+  String toString() => r'toggleExpenseLockActionProvider';
 }
 
 @ProviderFor(trip)
